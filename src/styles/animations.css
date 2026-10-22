@@ -1,0 +1,140 @@
+/* ============================================================
+   PROJECT ASTERIA — animations.css
+   Shared keyframes used across the interface.
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes fadeDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes chapterIn {
+  0% { opacity: 0; transform: scale(1.04); filter: blur(6px); }
+  20% { opacity: 1; filter: blur(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.99); }
+}
+
+@keyframes shineSweep {
+  0%, 62% { transform: translateX(-120%); }
+  82%, 100% { transform: translateX(120%); }
+}
+
+@keyframes sigilSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes grainShift {
+  0% { transform: translate(0, 0); }
+  33% { transform: translate(-1.5%, 1%); }
+  66% { transform: translate(1%, -1.5%); }
+  100% { transform: translate(0, 0); }
+}
+
+@keyframes caretBounce {
+  0%, 100% { transform: translateX(0); opacity: 0.55; }
+  50% { transform: translateX(3px); opacity: 1; }
+}
+
+@keyframes promptIn {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(-8px) scale(0.98); }
+}
+
+@keyframes trackerPulse {
+  0% { box-shadow: 0 8px 26px rgba(0, 0, 0, 0.26); }
+  35% { box-shadow: 0 8px 30px rgba(0, 0, 0, 0.26), 0 0 34px rgba(232, 201, 138, 0.24); }
+  100% { box-shadow: 0 8px 26px rgba(0, 0, 0, 0.26); }
+}
+
+@keyframes dialogueIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes completionIn {
+  0% { opacity: 0; transform: translate(-50%, -46%) scale(0.97); letter-spacing: 0.2em; }
+  18% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  78% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -52%) scale(1.01); }
+}
+
+@keyframes parchmentIn {
+  from { opacity: 0; transform: translateY(34px) scale(0.96); filter: brightness(1.6) blur(5px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1) blur(0); }
+}
+
+@keyframes wordIn {
+  from { opacity: 0; filter: blur(3px); }
+  to { opacity: 1; filter: blur(0); }
+}
+
+@keyframes rotatePhone {
+  0%, 20% { transform: rotate(0deg); }
+  50%, 80% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes staminaFlash {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes interactPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(247, 231, 184, 0.35), 0 0 20px rgba(247, 231, 184, 0.26), 0 6px 22px rgba(0, 0, 0, 0.4); }
+  50% { box-shadow: 0 0 0 1px rgba(247, 231, 184, 0.65), 0 0 34px rgba(247, 231, 184, 0.5), 0 6px 22px rgba(0, 0, 0, 0.4); }
+}
+
+@keyframes runeSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulseGold {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* Puzzle / mechanic feedback used by generated UI */
+.puzzle-rune {
+  animation: runeSpin 14s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+.is-pulsing {
+  animation: pulseGold 2s ease-in-out infinite;
+}

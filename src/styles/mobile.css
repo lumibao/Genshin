@@ -1,0 +1,280 @@
+/* ============================================================
+   PROJECT ASTERIA — mobile.css
+   Virtual joystick, look area, touch buttons, touch layout tweaks.
+   ============================================================ */
+
+#mobile-controls {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-hud) + 1);
+  pointer-events: none;
+}
+
+#mobile-controls > * {
+  pointer-events: auto;
+}
+
+/* Right-hand look area. Sits under the buttons so taps on UI win. */
+#touch-look {
+  position: absolute;
+  top: 62px;
+  right: 0;
+  bottom: 0;
+  left: 42%;
+  touch-action: none;
+  z-index: 0;
+}
+
+.look-hint {
+  position: absolute;
+  right: 50%;
+  bottom: 12%;
+  transform: translateX(50%);
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(244, 237, 221, 0.34);
+  opacity: 0;
+  transition: opacity 0.6s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#touch-look.is-idle .look-hint {
+  opacity: 1;
+}
+
+/* ------------------------------ Joystick ------------------------------ */
+
+#joystick {
+  position: absolute;
+  left: calc(18px + var(--safe-left));
+  bottom: calc(18px + var(--safe-bottom));
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  z-index: 2;
+}
+
+.joystick-base {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 201, 138, 0.26);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(10, 16, 25, 0.55) 0%, rgba(10, 16, 25, 0.26) 58%, rgba(10, 16, 25, 0.08) 100%);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.joystick-base::before,
+.joystick-base::after {
+  content: "";
+  position: absolute;
+  background: rgba(232, 201, 138, 0.14);
+}
+
+.joystick-base::before {
+  left: 50%;
+  top: 16%;
+  bottom: 16%;
+  width: 1px;
+}
+
+.joystick-base::after {
+  top: 50%;
+  left: 16%;
+  right: 16%;
+  height: 1px;
+}
+
+.joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin: -26px 0 0 -26px;
+  border-radius: 50%;
+  border: 1px solid rgba(247, 231, 184, 0.55);
+  background: radial-gradient(circle at 38% 32%, rgba(247, 231, 184, 0.32), rgba(16, 24, 36, 0.66));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), 0 0 20px rgba(220, 191, 133, 0.14);
+  transition: transform 0.09s linear;
+  will-change: transform;
+}
+
+#joystick.is-active .joystick-knob {
+  border-color: rgba(255, 246, 216, 0.85);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), 0 0 28px rgba(247, 231, 184, 0.32);
+}
+
+/* ------------------------------ Touch buttons ------------------------------ */
+
+.touch-buttons {
+  position: absolute;
+  right: calc(20px + var(--safe-right));
+  bottom: calc(20px + var(--safe-bottom));
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 3;
+}
+
+.touch-btn {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 1px solid rgba(232, 201, 138, 0.42);
+  background: radial-gradient(circle at 38% 30%, rgba(38, 50, 68, 0.72), rgba(9, 14, 22, 0.72));
+  color: var(--gold-bright);
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(220, 191, 133, 0.08);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  transition: transform 0.12s, border-color 0.2s, background 0.2s;
+  touch-action: none;
+}
+
+.touch-btn:active,
+.touch-btn.is-pressed {
+  transform: scale(0.93);
+  border-color: rgba(255, 246, 216, 0.9);
+  background: radial-gradient(circle at 38% 30%, rgba(247, 231, 184, 0.28), rgba(9, 14, 22, 0.78));
+}
+
+.touch-interact {
+  width: 74px;
+  height: 74px;
+  font-size: 24px;
+}
+
+.touch-interact.is-ready {
+  border-color: rgba(255, 247, 220, 0.95);
+  box-shadow: 0 0 0 1px rgba(247, 231, 184, 0.4), 0 0 26px rgba(247, 231, 184, 0.4), 0 6px 22px rgba(0, 0, 0, 0.4);
+  animation: interactPulse 2.2s ease-in-out infinite;
+}
+
+.touch-jump {
+  width: 52px;
+  height: 52px;
+  font-size: 16px;
+  margin-bottom: 6px;
+  opacity: 0.9;
+}
+
+/* ------------------------------ Mobile HUD layout ------------------------------ */
+
+.is-touch #btn-jump.hidden {
+  display: none !important;
+}
+
+.is-touch .hud-right {
+  gap: 7px;
+}
+
+.is-touch .minimap-shell {
+  width: 78px;
+}
+
+.is-touch .icon-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.is-touch .chapter-badge {
+  display: none;
+}
+
+.is-touch .hud-left {
+  max-width: 56vw;
+}
+
+.is-touch #interaction-prompt {
+  bottom: auto;
+  top: calc(50% + 40px);
+}
+
+.is-touch .dialogue-continue {
+  font-size: 0;
+}
+
+.is-touch .dialogue-continue i {
+  font-size: 12px;
+}
+
+/* Landscape phones: compress vertical rhythm */
+@media (max-height: 500px) {
+  #joystick {
+    width: 108px;
+    height: 108px;
+    left: calc(12px + var(--safe-left));
+    bottom: calc(12px + var(--safe-bottom));
+  }
+
+  .joystick-knob {
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+  }
+
+  .touch-buttons {
+    right: calc(14px + var(--safe-right));
+    bottom: calc(14px + var(--safe-bottom));
+    gap: 9px;
+  }
+
+  .touch-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 17px;
+  }
+
+  .touch-interact {
+    width: 62px;
+    height: 62px;
+    font-size: 20px;
+  }
+
+  .touch-jump {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  .is-touch .minimap-shell {
+    width: 66px;
+  }
+
+  .is-touch .icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .is-touch #quest-tracker {
+    max-width: 46vw;
+  }
+}
+
+/* Portrait is handled by the rotate screen; still keep controls sane. */
+@media (orientation: portrait) and (max-width: 820px) {
+  #mobile-controls {
+    display: none !important;
+  }
+}
+
+/* Hover-capable devices do not need the on-screen joystick. */
+@media (hover: hover) and (pointer: fine) {
+  .is-touch #joystick,
+  .is-touch .touch-buttons,
+  .is-touch #touch-look {
+    display: none !important;
+  }
+}

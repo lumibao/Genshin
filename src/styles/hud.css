@@ -1,0 +1,412 @@
+/* ============================================================
+   PROJECT ASTERIA — hud.css
+   Chapter badge, quest tracker, minimap, prompts, stamina.
+   ============================================================ */
+
+#hud {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-hud);
+  pointer-events: none;
+  padding:
+    calc(16px + var(--safe-top))
+    calc(18px + var(--safe-right))
+    calc(16px + var(--safe-bottom))
+    calc(18px + var(--safe-left));
+  opacity: 1;
+  transition: opacity 0.6s var(--ease-out);
+}
+
+#hud.is-dimmed {
+  opacity: 0;
+}
+
+#hud > * {
+  pointer-events: none;
+}
+
+#hud button,
+#hud .hud-actions,
+#hud .minimap-shell {
+  pointer-events: auto;
+}
+
+.hud-left {
+  position: absolute;
+  top: calc(14px + var(--safe-top));
+  left: calc(16px + var(--safe-left));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(330px, 46vw);
+}
+
+.chapter-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 16px 9px 13px;
+  border-left: 2px solid rgba(220, 191, 133, 0.75);
+  background: linear-gradient(90deg, rgba(7, 11, 18, 0.72), rgba(7, 11, 18, 0));
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+.chapter-kicker {
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.chapter-name {
+  font-family: var(--font-display);
+  font-size: clamp(12px, 1.8vh, 15px);
+  letter-spacing: 0.1em;
+  color: var(--ink-light);
+}
+
+#quest-tracker {
+  width: 100%;
+  padding: 12px 15px 13px;
+  background: linear-gradient(145deg, rgba(11, 17, 27, 0.7), rgba(8, 12, 20, 0.48));
+  border: 1px solid rgba(232, 201, 138, 0.2);
+  border-left: 1px solid rgba(232, 201, 138, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.26);
+  transition: opacity 0.4s, transform 0.4s var(--ease-out);
+}
+
+#quest-tracker.is-updating {
+  animation: trackerPulse 0.8s var(--ease-out);
+}
+
+.quest-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: clamp(10px, 1.5vh, 12px);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+}
+
+.quest-diamond {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  transform: rotate(45deg);
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(232, 201, 138, 0.8);
+}
+
+#quest-objectives {
+  margin-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#quest-objectives li {
+  position: relative;
+  padding-left: 18px;
+  font-size: clamp(13px, 1.9vh, 15px);
+  line-height: 1.35;
+  color: rgba(240, 232, 215, 0.9);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  transition: color 0.3s, opacity 0.3s;
+}
+
+#quest-objectives li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
+  border: 1px solid rgba(220, 191, 133, 0.6);
+  transform: rotate(45deg);
+}
+
+#quest-objectives li.is-current {
+  color: #fff8e7;
+}
+
+#quest-objectives li.is-current::before {
+  background: var(--gold-bright);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 8px rgba(247, 231, 184, 0.7);
+}
+
+#quest-objectives li.is-done {
+  color: rgba(200, 214, 186, 0.5);
+  text-decoration: line-through;
+  text-decoration-color: rgba(200, 214, 186, 0.35);
+}
+
+#quest-objectives li.is-done::before {
+  background: rgba(169, 214, 160, 0.4);
+  border-color: rgba(169, 214, 160, 0.4);
+}
+
+#quest-objectives li.objective-hint {
+  margin-top: 2px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--ink-dim);
+  padding-left: 0;
+}
+
+#quest-objectives li.objective-hint::before {
+  display: none;
+}
+
+.quest-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+}
+
+/* ------------------------------ Minimap ------------------------------ */
+
+.hud-right {
+  position: absolute;
+  top: calc(14px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.minimap-shell {
+  position: relative;
+  width: clamp(96px, 15vh, 136px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid rgba(220, 191, 133, 0.34);
+  box-shadow:
+    0 0 0 4px rgba(7, 11, 18, 0.55),
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    inset 0 0 26px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  background: rgba(10, 16, 24, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+#minimap {
+  width: 100%;
+  height: 100%;
+}
+
+.minimap-ring {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(232, 201, 138, 0.13);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.minimap-n {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 8px #000, 0 1px 3px #000;
+}
+
+.hud-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(232, 201, 138, 0.24);
+  background: rgba(8, 13, 21, 0.62);
+  color: rgba(244, 237, 221, 0.78);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  transition: border-color 0.25s, color 0.25s, background 0.25s, transform 0.2s;
+}
+
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+.icon-btn:hover {
+  border-color: rgba(247, 231, 184, 0.7);
+  color: var(--gold-bright);
+  background: rgba(20, 28, 40, 0.8);
+}
+
+.icon-btn:active {
+  transform: scale(0.94);
+}
+
+.icon-btn.is-muted {
+  color: rgba(236, 226, 203, 0.34);
+}
+
+/* ------------------------------ Interaction prompt ------------------------------ */
+
+#interaction-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(14vh, 18vh, 22vh);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 20px 9px 11px;
+  background: linear-gradient(150deg, rgba(12, 18, 28, 0.86), rgba(8, 12, 20, 0.72));
+  border: 1px solid rgba(232, 201, 138, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42), 0 0 24px rgba(220, 191, 133, 0.08);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: promptIn 0.35s var(--ease-out);
+  white-space: nowrap;
+}
+
+#interaction-prompt.is-hidden {
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.22s, transform 0.22s;
+}
+
+.prompt-key {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid rgba(247, 231, 184, 0.6);
+  background: rgba(232, 201, 138, 0.1);
+  color: var(--gold-bright);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.prompt-text {
+  font-size: clamp(13px, 1.9vh, 15px);
+  letter-spacing: 0.04em;
+  color: var(--ink-light);
+}
+
+/* ------------------------------ Stamina ------------------------------ */
+
+#stamina {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(3.2vh, 5vh, 7vh);
+  transform: translateX(-50%);
+  width: min(210px, 32vw);
+  height: 3px;
+  background: rgba(8, 12, 18, 0.55);
+  border: 1px solid rgba(232, 201, 138, 0.12);
+  opacity: 0.9;
+  transition: opacity 0.4s;
+}
+
+#stamina i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #8fb6a2, #d9e6bd);
+  box-shadow: 0 0 8px rgba(200, 230, 190, 0.4);
+  transform-origin: left center;
+  transition: width 0.1s linear;
+}
+
+#stamina.is-empty {
+  animation: staminaFlash 1s ease-in-out infinite;
+}
+
+/* ------------------------------ Toast positioning ------------------------------ */
+
+@media (max-width: 760px) {
+  .hud-left {
+    max-width: 58vw;
+  }
+
+  #quest-tracker {
+    padding: 9px 11px 10px;
+  }
+
+  .chapter-badge {
+    display: none;
+  }
+
+  #quest-objectives li {
+    font-size: 12px;
+  }
+
+  #interaction-prompt {
+    bottom: calc(19vh + var(--safe-bottom));
+    padding: 7px 16px 7px 8px;
+  }
+
+  .prompt-key {
+    min-width: 24px;
+    height: 24px;
+  }
+
+  .minimap-shell {
+    width: 82px;
+  }
+
+  .icon-btn {
+    width: 33px;
+    height: 33px;
+  }
+
+  #toasts {
+    top: calc(10vh + var(--safe-top));
+  }
+}
+
+@media (max-height: 500px) {
+  .chapter-badge {
+    display: none;
+  }
+
+  .minimap-shell {
+    width: 72px;
+  }
+
+  #quest-tracker {
+    padding: 8px 10px;
+  }
+
+  #quest-objectives {
+    margin-top: 6px;
+    gap: 3px;
+  }
+
+  #quest-objectives li {
+    font-size: 11px;
+  }
+
+  #interaction-prompt {
+    bottom: calc(16vh + var(--safe-bottom));
+  }
+}
