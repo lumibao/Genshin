@@ -31,6 +31,33 @@ The game is fully client-side — `dist/` can be hosted on any static host.
 
 ---
 
+## Deploying to GitHub Pages
+
+The published site must be the **build output**, never the repository source.
+`index.html` imports the `three` package by name and links CSS from `src/`,
+which only a bundler can resolve — serving the source gives a blank, unstyled
+page.
+
+This repository ships `.github/workflows/deploy.yml`, which on every push to
+`main` installs, runs the test suite, builds, and publishes `dist/`.
+
+**One-time setup:** Settings → Pages → **Source: GitHub Actions**
+(not "Deploy from a branch").
+
+`vite.config.js` sets `base: './'`, so the same build works from a project site
+(`https://<user>.github.io/Genshin/`), a user site, a custom domain, or a
+throwaway local server:
+
+```bash
+npm run build
+cd dist && python3 -m http.server 8000   # http://localhost:8000/
+```
+
+If the deployed page ever loads but the game does not start, an inline watchdog
+in `index.html` explains what failed instead of leaving a half-rendered page.
+
+---
+
 ## Controls
 
 | Action | Desktop | Touch |

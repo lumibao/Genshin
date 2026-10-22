@@ -17,7 +17,14 @@ import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const dom = new JSDOM(html, { pretendToBeVisual: true, url: 'http://localhost/' });
+const dom = new JSDOM(html, {
+  pretendToBeVisual: true,
+  url: 'http://localhost/',
+  // The boot watchdog is covered by its own test; keep its timer out of these runs.
+  beforeParse: (window) => {
+    window.__asteriaSkipBootWatchdog = true;
+  },
+});
 const { window } = dom;
 
 globalThis.window = window;
