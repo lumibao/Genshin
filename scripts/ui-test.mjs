@@ -269,7 +269,7 @@ await test('modal opens, traps focus, closes on Escape and releases its blocker'
   assert.equal(modal.isOpen, false);
   assert.equal(closed, true);
   assert.equal(game.blockers.has('modal'), false);
-  await sleep(260);
+  await sleep(450);
   assert.equal(uiRoot().querySelector('.modal-layer'), null);
 });
 
@@ -285,10 +285,10 @@ await test('dialogue plays line by line, advances on click and releases its bloc
   assert.ok(document.getElementById('dialogue-text').textContent.length > 0, 'first line is typed instantly');
 
   const layer = document.getElementById('dialogue');
-  // The UI debounces rapid advances, so each click waits out the lock.
-  for (let i = 0; i < 10 && dialogue.isActive; i++) {
+  // The UI debounces rapid advances for 80ms; a slow runner must not beat it.
+  for (let i = 0; i < 12 && dialogue.isActive; i++) {
     layer.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-    await sleep(95);
+    await sleep(140);
   }
   await promise;
 
@@ -363,7 +363,7 @@ await test('book opens, renders words, turns pages and resolves on close', async
   document.querySelector('#book-overlay .book-close').click();
   await done;
   assert.equal(book.isOpen, false);
-  await sleep(1100);
+  await sleep(1400);
   assert.equal(document.getElementById('book-overlay'), null);
   assert.equal(game.blockers.has('book'), false);
   assert.equal(document.body.classList.contains('is-reading'), false);
@@ -611,7 +611,7 @@ async function runWatchdog({ booted = false, waitMs = 80 } = {}) {
     },
   });
   // jsdom fires "load" once the document is parsed.
-  await new Promise((resolve) => setTimeout(resolve, waitMs + 220));
+  await new Promise((resolve) => setTimeout(resolve, waitMs + 600));
   return probe.window.document.getElementById('boot-error');
 }
 

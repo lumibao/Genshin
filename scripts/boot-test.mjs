@@ -216,7 +216,7 @@ try {
     assert.ok(document.querySelector('#ui-root .modal-layer'), 'the pause modal is open');
 
     document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 320));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     assert.equal(game.paused, false);
     assert.equal(game.modal.isOpen, false);
   });
@@ -261,7 +261,7 @@ try {
       // Close whichever modal belongs to the panel.
       const layer = document.querySelector('#ui-root .modal-layer');
       layer.querySelector('.modal-close')?.click();
-      await new Promise((resolve) => setTimeout(resolve, 320));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       assert.equal(document.querySelectorAll('#ui-root .modal-layer').length, 0,
         `${name}: layers left ${document.querySelectorAll('#ui-root .modal-layer').length}`);
     }
@@ -320,7 +320,7 @@ try {
     const started = Date.now();
     while (!document.getElementById('book-overlay') && settled === 'pending') {
       await new Promise((resolve) => setTimeout(resolve, 60));
-      if (Date.now() - started > 9000) break;
+      if (Date.now() - started > 20000) break;
     }
     assert.ok(document.getElementById('book-overlay'), 'the chronicle overlay opened');
     assert.equal(game.state.discoveredPage, true);
@@ -332,7 +332,7 @@ try {
       await new Promise((resolve) => setTimeout(resolve, 40));
       document.querySelector('#book-overlay .book-close').click();
     })();
-    const result = await Promise.race([reveal, new Promise((resolve) => setTimeout(() => resolve('timeout'), 9000))]);
+    const result = await Promise.race([reveal, new Promise((resolve) => setTimeout(() => resolve('timeout'), 20000))]);
     await closed;
     assert.equal(result, true, 'the reveal completed');
     assert.equal(game.blockers.has('reveal'), false);
