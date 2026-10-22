@@ -1,0 +1,77 @@
+name: Deploy to GitHub Pages
+
+# Builds the game and publishes dist/ to GitHub Pages.
+#
+# GitHub Pages cannot serve this repository's source: the entry point imports
+# the `three` package by name and loads CSS from src/, which only a bundler can
+# resolve. The published site must therefore be the Vite build output.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a newer commit cancel an in-flight deploy, but never cancel a running one
+# halfway through publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Fail with instructions rather than deploy-pages' internal error when the
+      # repository is still publishing from a branch.
+      - name: Check the Pages source is GitHub Actions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null || echo "none")
+          echo "Pages build_type: ${build_type}"
+          if [ "${build_type}" != "workflow" ]; then
+            echo "::error title=Pages source is not GitHub Actions::Open Settings → Pages → Build and deployment → Source, choose \"GitHub Actions\", then re-run this workflow. While the source is a branch, Pages publishes the repository source instead of the build, which is why the game shows a blank, unstyled page."
+            exit 1
+          fi
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

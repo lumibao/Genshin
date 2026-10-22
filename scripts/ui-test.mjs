@@ -14,7 +14,14 @@ import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const dom = new JSDOM(html, { pretendToBeVisual: true, url: 'http://localhost/' });
+const dom = new JSDOM(html, {
+  pretendToBeVisual: true,
+  url: 'http://localhost/',
+  // The boot watchdog is covered by its own test; keep its timer out of these runs.
+  beforeParse: (window) => {
+    window.__asteriaSkipBootWatchdog = true;
+  },
+});
 const { window } = dom;
 
 globalThis.window = window;
@@ -587,6 +594,37 @@ await test('the ending refuses to start without a discovered page', async () => 
   const result = await ending.start();
   assert.equal(result, false);
   assert.equal(ending.active, false);
+});
+
+/* ------------------------------------------------------------------ */
+/* Boot watchdog (runs the real inline script from index.html)         */
+/* ------------------------------------------------------------------ */
+
+async function runWatchdog({ booted = false, waitMs = 80 } = {}) {
+  const probe = new JSDOM(html, {
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    url: 'http://localhost/',
+    beforeParse(window) {
+      window.__asteriaBootWaitMs = waitMs;
+      if (booted) window.projectAsteria = { fake: true };
+    },
+  });
+  // jsdom fires "load" once the document is parsed.
+  await new Promise((resolve) => setTimeout(resolve, waitMs + 220));
+  return probe.window.document.getElementById('boot-error');
+}
+
+await test('the boot watchdog explains a page whose module never loads', async () => {
+  const overlay = await runWatchdog({ booted: false });
+  assert.ok(overlay, 'an explanation is shown instead of a silent half-rendered page');
+  assert.ok(overlay.textContent.includes('could not start'));
+  assert.ok(overlay.textContent.includes('Reload'));
+});
+
+await test('the boot watchdog stays silent once the game has booted', async () => {
+  const overlay = await runWatchdog({ booted: true });
+  assert.equal(overlay, null, 'no overlay when the module evaluated');
 });
 
 console.log(results.join('\n'));

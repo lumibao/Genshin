@@ -196,5 +196,81 @@
       <div id="ui-root"></div>
     </div>
     <script type="module" src="/src/main.js"></script>
+    <!--
+      Boot watchdog. Plain inline JS with inline styles, so it still works when
+      the stylesheets or the module fail to load — exactly the case where the
+      page would otherwise sit there half-rendered and silent. The module sets
+      window.projectAsteria as soon as it evaluates.
+    -->
+    <script>
+      (function () {
+        // The test harness opts out, and shortens the wait when it opts in.
+        if (window.__asteriaSkipBootWatchdog) return;
+        var WAIT_MS = window.__asteriaBootWaitMs || 15000;
+        function failedRequests() {
+          try {
+            return performance
+              .getEntriesByType('resource')
+              .filter(function (entry) {
+                return entry.name && typeof entry.responseStatus === 'number' && entry.responseStatus >= 400;
+              })
+              .map(function (entry) {
+                return entry.name.replace(location.origin, '');
+              });
+          } catch (err) {
+            return [];
+          }
+        }
+        function explain() {
+          if (window.projectAsteria) return;
+          var current = document.getElementById('boot-error');
+          if (current) return;
+          var missing = failedRequests();
+          var box = document.createElement('div');
+          box.id = 'boot-error';
+          box.setAttribute('role', 'alertdialog');
+          box.style.cssText = [
+            'position:fixed', 'inset:0', 'z-index:99999',
+            'display:flex', 'flex-direction:column', 'align-items:center',
+            'justify-content:center', 'gap:14px', 'padding:28px',
+            'text-align:center', 'background:#070b12', 'color:#f2ecdd',
+            'font-family:Georgia,serif', 'line-height:1.6',
+          ].join(';');
+          var heading = document.createElement('h1');
+          heading.textContent = 'The game could not start';
+          heading.style.cssText = 'margin:0;font-size:1.4rem;color:#dcbf85';
+          var body = document.createElement('p');
+          body.style.cssText = 'margin:0;max-width:46ch;opacity:.85';
+          body.textContent = 'The page loaded, but its program files never did. That usually means the site is serving the source code instead of a build, or a file is missing.';
+          var list = null;
+          if (missing.length) {
+            list = document.createElement('pre');
+            list.style.cssText = 'margin:0;max-width:90vw;overflow:auto;font-size:.75rem;opacity:.7;text-align:left';
+            list.textContent = 'Missing: ' + missing.slice(0, 6).join('\n         ');
+          }
+          var hint = document.createElement('p');
+          hint.style.cssText = 'margin:0;max-width:46ch;opacity:.6;font-size:.9rem';
+          hint.textContent = 'Reload the page. If it keeps happening on a published site, its deploy needs to run "npm run build" and publish the dist folder.';
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = 'Reload';
+          button.style.cssText = [
+            'margin-top:6px', 'padding:10px 22px', 'border-radius:999px', 'cursor:pointer',
+            'border:1px solid rgba(220,191,133,.5)', 'background:transparent',
+            'color:#dcbf85', 'font:inherit', 'letter-spacing:.06em', 'text-transform:uppercase',
+          ].join(';');
+          button.addEventListener('click', function () { location.reload(); });
+          box.appendChild(heading);
+          box.appendChild(body);
+          if (list) box.appendChild(list);
+          box.appendChild(hint);
+          box.appendChild(button);
+          document.body.appendChild(box);
+        }
+        window.addEventListener('load', function () {
+          setTimeout(explain, WAIT_MS);
+        });
+      })();
+    </script>
   </body>
 </html>
