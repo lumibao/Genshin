@@ -38,7 +38,20 @@ jobs:
         run: npm ci
 
       - name: Test
-        run: npm test
+        run: |
+          node --version
+          npm test 2>&1 | tee test-output.log
+
+      # Logs are not always retrievable from the CLI; annotations always are.
+      - name: Report the failing output
+        if: failure()
+        run: |
+          if [ ! -f test-output.log ]; then
+            echo "::error title=Tests failed::No test output was produced."
+            exit 0
+          fi
+          body=$(tail -c 4000 test-output.log | tr '\r' ' ' | tr '\n' ' ' | tr -s ' ')
+          echo "::error title=Test output tail::${body}"
 
       - name: Build
         run: npm run build
