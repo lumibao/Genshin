@@ -59,6 +59,19 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Fail with instructions rather than deploy-pages' internal error when the
+      # repository is still publishing from a branch.
+      - name: Check the Pages source is GitHub Actions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null || echo "none")
+          echo "Pages build_type: ${build_type}"
+          if [ "${build_type}" != "workflow" ]; then
+            echo "::error title=Pages source is not GitHub Actions::Open Settings → Pages → Build and deployment → Source, choose \"GitHub Actions\", then re-run this workflow. While the source is a branch, Pages publishes the repository source instead of the build, which is why the game shows a blank, unstyled page."
+            exit 1
+          fi
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
