@@ -627,6 +627,58 @@ await test('the boot watchdog stays silent once the game has booted', async () =
   assert.equal(overlay, null, 'no overlay when the module evaluated');
 });
 
+await test('a source-served page redirects to the published build in game/', async () => {
+  const navigations = [];
+  const fetched = [];
+  const probe = new JSDOM(html, {
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    url: 'http://localhost/Genshin/',
+    beforeParse(window) {
+      window.__asteriaBootWaitMs = 60;
+      window.__asteriaNavigate = (url) => navigations.push(url);
+      window.fetch = (url, options) => {
+        fetched.push({ url, method: options && options.method });
+        return Promise.resolve({ ok: true, status: 200 });
+      };
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  const w = probe.window;
+  assert.equal(typeof w.__asteriaBootFallback, 'function', 'the fallback is reachable');
+  assert.equal(w.document.getElementById('boot-error'), null, 'no error box: the build exists');
+
+  // The entry module failed to load, so the fallback ran on its own.
+  assert.ok(
+    navigations.includes('./game/') || fetched.some((f) => f.url === './game/index.html'),
+    `expected a probe of ./game/ or a redirect, got ${JSON.stringify({ navigations, fetched })}`,
+  );
+  for (const entry of fetched) {
+    assert.equal(entry.method, 'HEAD', 'the probe is a HEAD request');
+    assert.equal(entry.url, './game/index.html');
+  }
+});
+
+await test('the fallback explains itself when no build is published', async () => {
+  const probe = new JSDOM(html, {
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
+    url: 'http://localhost/Genshin/',
+    beforeParse(window) {
+      window.__asteriaBootWaitMs = 60;
+      window.fetch = () => Promise.resolve({ ok: false, status: 404 });
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 400));
+
+  const box = probe.window.document.getElementById('boot-error');
+  assert.ok(box, 'an explanation is shown');
+  assert.ok(box.textContent.includes('could not start'));
+  assert.ok(box.textContent.includes('Reload'));
+  assert.equal(probe.window.document.querySelector('a[href*="game"]'), null);
+});
+
 console.log(results.join('\n'));
 console.log(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) process.exit(1);

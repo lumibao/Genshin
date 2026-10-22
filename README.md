@@ -38,94 +38,39 @@ The published site must be the **build output**, never the repository source.
 which only a bundler can resolve — serving the source gives a blank, unstyled
 page.
 
-This repository ships `.github/workflows/deploy.yml`, which on every push to
-`main` installs, runs the test suite, builds, and publishes `dist/`.
+`.github/workflows/deploy.yml` runs on every push to `main`: install, test,
+build, then publish. It detects which publishing mode the repository is in and
+handles both:
 
-**One-time setup:** Settings → Pages → **Source: GitHub Actions**
-(not "Deploy from a branch").
+| Pages source | What the workflow does | Where the game lives |
+| --- | --- | --- |
+| **GitHub Actions** (preferred) | Uploads `dist/` with `actions/upload-pages-artifact` and deploys with `actions/deploy-pages` | `https://<user>.github.io/<repo>/` |
+| **Deploy from a branch** (the default) | Copies `dist/` into `game/` and commits it | `https://<user>.github.io/<repo>/game/` |
 
-`vite.config.js` sets `base: './'`, so the same build works from a project site
-(`https://<user>.github.io/Genshin/`), a user site, a custom domain, or a
-throwaway local server:
+In branch mode the root page is still the source shell, so it detects that its
+entry module failed to load, checks that `game/index.html` exists, and forwards
+the visitor there. `https://<user>.github.io/<repo>/` therefore works either
+way.
+
+> **Switching to the Actions source is a one-click job for a repository admin**
+> (Settings → Pages → Build and deployment → Source → *GitHub Actions*). Neither
+> a workflow token nor an app installation token can do it: creating a Pages
+> site requires repository **administration** rights, which `GITHUB_TOKEN`
+> cannot be granted — `actions/configure-pages` with `enablement: true` fails
+> with *Resource not accessible by integration* for exactly this reason.
+> Setting it removes the committed `game/` folder from future builds.
+
+`vite.config.js` sets `base: './'`, so the same build works from a project
+subpath, a user site, a custom domain, or a throwaway local server:
 
 ```bash
 npm run build
 cd dist && python3 -m http.server 8000   # http://localhost:8000/
 ```
 
-If the deployed page ever loads but the game does not start, an inline watchdog
-in `index.html` explains what failed instead of leaving a half-rendered page.
-
----
-
-## Controls
-
-| Action | Desktop | Touch |
-| --- | --- | --- |
-| Move | `W A S D` / arrow keys | left joystick |
-| Look | mouse (click to capture) or drag | drag the right side |
-| Interact | `E` / `F` | ✦ button |
-| Sprint | `Shift` | — |
-| Jump | `Space` | ↑ button |
-| Satchel | `I` | HUD bag button |
-| Journal | `J` | pause menu |
-| Controls help | `H` | pause menu |
-| Pause | `Esc` | HUD menu button |
-
-Pointer lock is optional: dragging with the mouse still turns the camera, which
-is what touch and trackpads use. Fullscreen is requested when you start a new
-adventure and can be toggled in Settings.
-
----
-
-## The journey
-
-| Chapter | Place | What happens |
-| --- | --- | --- |
-| I | Windrise Meadow | Meet Wren, gather three wind fragments, open the old chest. |
-| II | Whispering Woods & the Fallen Circle | Wake three mechanisms in the order the stones remember. |
-| III | The Sealed Archive | Match three pages to their pedestals; meet the Archivist's Echo. |
-| IV | The Celestial Observatory | Light the star mechanisms, then trace the constellation. |
-| V | The Forgotten Library | Open the Unwritten Chronicle. |
-
-Progress is saved automatically to `localStorage` and is validated on load:
-tampered saves cannot unlock a chapter that was never completed.
-
----
-
-## Personalising the hidden page
-
-Chapter V ends with a book that contains a page written just for one person.
-**Before giving the game to her, edit one file:**
-
-```
-src/story/secretMessage.js
-```
-
-1. Replace the placeholders in `PERSONAL`:
-
-   | Placeholder | Meaning |
-   | --- | --- |
-   | `[HER NAME]` | her name, as you say it |
-   | `[YOUR NAME]` | your name, or the name she calls you |
-   | `[SPECIAL DATE]` | a date that matters to the two of you |
-
-2. Rewrite `personalMessage` and `finalPromise` in your own voice. Short and
-   plain reads better than grand.
-3. Adjust `SECRET_PAGE.inscription` if you want a different closing line — it
-   is also shown in the ending sanctuary.
-4. Run the tests: `npm test`. The logic test fails while placeholders remain,
-   which is a deliberate reminder.
-
-That module is **never** imported by the initial bundle. It is fetched with a
-dynamic `import()` only after the reveal gate clears (Chapter IV complete, the
-Celestial Seal claimed, Chapter V entered, and the physical book opened). Its
-words do not appear in quest data, dialogue, the journal, or the main
-JavaScript chunk.
-
-A client-side story can never hide text from someone who opens developer tools.
-The goal is simply that she never meets it before the moment it is meant to
-arrive.
+`game/` is committed on purpose in branch mode; do not add it to `.gitignore`.
+If the deployed page loads but the game does not start, an inline watchdog in
+`index.html` explains what failed instead of leaving a half-rendered page.
 
 ---
 
