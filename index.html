@@ -195,18 +195,25 @@
       <!-- ============ GENERATED UI (modals, book, etc.) ============ -->
       <div id="ui-root"></div>
     </div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.js" id="asteria-entry"></script>
     <!--
-      Boot watchdog. Plain inline JS with inline styles, so it still works when
-      the stylesheets or the module fail to load — exactly the case where the
-      page would otherwise sit there half-rendered and silent. The module sets
-      window.projectAsteria as soon as it evaluates.
+      Boot handling. Plain inline JS with inline styles, so it works even when
+      the module and the stylesheets do not load — the case where the page
+      would otherwise sit there half-rendered and silent.
+
+      1. If the entry module fails (a static host publishing the repository
+         source instead of the build), send the visitor to ./game/, where the
+         build is published. Nothing happens when the module runs.
+      2. If the module never evaluates for any reason, say so instead of
+         showing a blank page.
     -->
     <script>
       (function () {
         // The test harness opts out, and shortens the wait when it opts in.
         if (window.__asteriaSkipBootWatchdog) return;
-        var WAIT_MS = window.__asteriaBootWaitMs || 15000;
+        var WAIT_MS = window.__asteriaBootWaitMs || 12000;
+        var FALLBACK = './game/';
+
         function failedRequests() {
           try {
             return performance
@@ -221,11 +228,10 @@
             return [];
           }
         }
-        function explain() {
+
+        function explain(missing) {
           if (window.projectAsteria) return;
-          var current = document.getElementById('boot-error');
-          if (current) return;
-          var missing = failedRequests();
+          if (document.getElementById('boot-error')) return;
           var box = document.createElement('div');
           box.id = 'boot-error';
           box.setAttribute('role', 'alertdialog');
@@ -241,16 +247,18 @@
           heading.style.cssText = 'margin:0;font-size:1.4rem;color:#dcbf85';
           var body = document.createElement('p');
           body.style.cssText = 'margin:0;max-width:46ch;opacity:.85';
-          body.textContent = 'The page loaded, but its program files never did. That usually means the site is serving the source code instead of a build, or a file is missing.';
-          var list = null;
-          if (missing.length) {
-            list = document.createElement('pre');
+          body.textContent = 'The page loaded, but its program files never did. The site is most likely serving the source code instead of the build.';
+          box.appendChild(heading);
+          box.appendChild(body);
+          var list = (missing || []).length && document.createElement('pre');
+          if (list) {
             list.style.cssText = 'margin:0;max-width:90vw;overflow:auto;font-size:.75rem;opacity:.7;text-align:left';
             list.textContent = 'Missing: ' + missing.slice(0, 6).join('\n         ');
+            box.appendChild(list);
           }
           var hint = document.createElement('p');
           hint.style.cssText = 'margin:0;max-width:46ch;opacity:.6;font-size:.9rem';
-          hint.textContent = 'Reload the page. If it keeps happening on a published site, its deploy needs to run "npm run build" and publish the dist folder.';
+          hint.textContent = 'Reload the page. If this is a published copy of the project, its deploy needs to publish the build output.';
           var button = document.createElement('button');
           button.type = 'button';
           button.textContent = 'Reload';
@@ -260,15 +268,59 @@
             'color:#dcbf85', 'font:inherit', 'letter-spacing:.06em', 'text-transform:uppercase',
           ].join(';');
           button.addEventListener('click', function () { location.reload(); });
-          box.appendChild(heading);
-          box.appendChild(body);
-          if (list) box.appendChild(list);
           box.appendChild(hint);
           box.appendChild(button);
           document.body.appendChild(box);
         }
+
+        function go(url) {
+          // Indirection so the test harness can observe the navigation.
+          if (typeof window.__asteriaNavigate === 'function') {
+            window.__asteriaNavigate(url);
+            return;
+          }
+          location.replace(url);
+        }
+
+        // Is the built copy published next to this page? Only ask once.
+        var fallbackTried = false;
+        function openBuiltCopy() {
+          if (window.projectAsteria || fallbackTried) return;
+          fallbackTried = true;
+          if (typeof fetch !== 'function') {
+            explain(failedRequests());
+            return;
+          }
+          Promise.resolve()
+            .then(function () {
+              return fetch(FALLBACK + 'index.html', { method: 'HEAD', cache: 'no-store' });
+            })
+            .then(function (response) {
+              if (!response || !response.ok) throw new Error('no published build at ' + FALLBACK);
+              go(FALLBACK);
+            })
+            .catch(function () {
+              explain(failedRequests());
+            });
+        }
+        // Test seam: lets the harness drive the fallback without waiting.
+        window.__asteriaBootFallback = openBuiltCopy;
+
+        // The shortest possible signal: the entry module itself failed to load.
+        var entry = document.getElementById('asteria-entry');
+        if (entry) {
+          entry.addEventListener('error', openBuiltCopy);
+          // Some hosts answer 200 with an HTML error page; the module then
+          // fails during evaluation, which surfaces as a window error.
+          window.addEventListener('error', function (event) {
+            if (event && event.target === entry) openBuiltCopy();
+          }, true);
+        }
+
         window.addEventListener('load', function () {
-          setTimeout(explain, WAIT_MS);
+          setTimeout(function () {
+            if (!window.projectAsteria) openBuiltCopy();
+          }, WAIT_MS);
         });
       })();
     </script>

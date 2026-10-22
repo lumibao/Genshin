@@ -1,10 +1,24 @@
 name: Deploy to GitHub Pages
 
-# Builds the game and publishes dist/ to GitHub Pages.
+# Publishes the game to https://lumibao.github.io/Genshin/
 #
 # GitHub Pages cannot serve this repository's source: the entry point imports
 # the `three` package by name and loads CSS from src/, which only a bundler can
-# resolve. The published site must therefore be the Vite build output.
+# resolve. The published site must be the Vite build output.
+#
+# Pages has two modes and this workflow handles both:
+#
+#   actions — Pages is set to "GitHub Actions". The build is uploaded as an
+#             artifact and deployed by actions/deploy-pages.
+#   branch  — Pages is set to "Deploy from a branch" (the repository default,
+#             and what this repository is currently on). The build is copied
+#             into game/ and committed, because the root page redirects there
+#             when it detects it is being served as source. That keeps the site
+#             working without repository-admin access.
+#
+# Switching to the "GitHub Actions" source is still preferable: it drops the
+# committed build from the branch. It needs one click by a repository admin
+# (Settings → Pages → Source); a workflow token cannot do it.
 
 on:
   push:
@@ -12,12 +26,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # publishing the build into game/ on branch mode
   pages: write
   id-token: write
 
-# Let a newer commit cancel an in-flight deploy, but never cancel a running one
-# halfway through publishing.
+# Let a newer commit cancel an in-flight run, but never interrupt a publish.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -26,6 +39,8 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      pages-mode: ${{ steps.mode.outputs.mode }}
     steps:
       - uses: actions/checkout@v5
 
@@ -56,10 +71,46 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Detect the Pages publishing mode
+        id: mode
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null || echo none)
+          echo "Pages build_type: ${build_type}"
+          if [ "${build_type}" = "workflow" ]; then
+            echo "mode=actions" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=branch" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Publishing into game/::Pages is publishing from a branch, so the build is committed to game/ and the root page redirects there."
+          fi
+
+      # Branch mode: publish the build into the branch Pages already serves.
+      # A push made with GITHUB_TOKEN does not start another workflow run, so
+      # this cannot loop.
+      - name: Publish the build into game/ (branch mode)
+        if: steps.mode.outputs.mode == 'branch' && github.ref == 'refs/heads/main'
+        run: |
+          rm -rf game
+          cp -r dist game
+          touch game/.nojekyll
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A game
+          if git diff --cached --quiet; then
+            echo "game/ is already up to date"
+          else
+            git commit -m "Publish the built game to game/ [skip ci]"
+            # A push event leaves HEAD detached; name the branch explicitly.
+            git push origin HEAD:main
+          fi
+
       - name: Configure Pages
+        if: steps.mode.outputs.mode == 'actions'
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
+        if: steps.mode.outputs.mode == 'actions'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
@@ -67,24 +118,12 @@ jobs:
   deploy:
     name: Deploy
     needs: build
+    if: needs.build.outputs.pages-mode == 'actions'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # Fail with instructions rather than deploy-pages' internal error when the
-      # repository is still publishing from a branch.
-      - name: Check the Pages source is GitHub Actions
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq '.build_type' 2>/dev/null || echo "none")
-          echo "Pages build_type: ${build_type}"
-          if [ "${build_type}" != "workflow" ]; then
-            echo "::error title=Pages source is not GitHub Actions::Open Settings → Pages → Build and deployment → Source, choose \"GitHub Actions\", then re-run this workflow. While the source is a branch, Pages publishes the repository source instead of the build, which is why the game shows a blank, unstyled page."
-            exit 1
-          fi
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

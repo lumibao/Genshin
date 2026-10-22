@@ -4,3 +4,6 @@ dist/
 *.log
 .vite/
 coverage/
+
+# Published build (committed on purpose: Pages serves this branch)
+# game/ is intentionally NOT ignored.

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0c1320" />
+    <meta name="description" content="Project Asteria: The Chronicles of Teyvat — an original 3D fantasy adventure." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Project Asteria — The Chronicles of Teyvat</title>
+    <script type="module" crossorigin src="./assets/index-C_aprkZL.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/three-DPVd77vJ.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-CHjMio8u.css">
+  </head>
+  <body>
+    <noscript>
+      <div class="noscript">
+        <h1>Project Asteria needs JavaScript</h1>
+        <p>This adventure runs entirely in your browser. Enable JavaScript and reload to walk into the meadow.</p>
+      </div>
+    </noscript>
+    <div id="app">
+      <!-- 3D canvas is inserted here by Renderer.js -->
+      <div id="scene-root" aria-hidden="true"></div>
+      <div id="vignette" aria-hidden="true"></div>
+      <div id="grain" aria-hidden="true"></div>
+
+      <!-- ============ HUD ============ -->
+      <div id="hud" class="hidden" aria-live="off">
+        <div class="hud-left">
+          <div class="chapter-badge">
+            <span class="chapter-kicker" id="chapter-kicker">Chapter I</span>
+            <span class="chapter-name" id="chapter-name">Whispers of the Wind</span>
+          </div>
+          <div id="quest-tracker" class="panel">
+            <div class="quest-head">
+              <span class="quest-diamond" aria-hidden="true"></span>
+              <span id="quest-title">Whispers of the Wind</span>
+            </div>
+            <ul id="quest-objectives"></ul>
+          </div>
+        </div>
+
+        <div class="hud-right">
+          <div class="minimap-shell" id="minimap-shell">
+            <canvas id="minimap" width="200" height="200"></canvas>
+            <span class="minimap-n">N</span>
+            <span class="minimap-ring" aria-hidden="true"></span>
+          </div>
+          <div class="hud-actions">
+            <button id="btn-inventory" class="icon-btn" type="button" aria-label="Inventory (I)" title="Inventory (I)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V6a4 4 0 0 1 8 0v1h2.2a1 1 0 0 1 1 .9l1.2 11a1 1 0 0 1-1 1.1H4.6a1 1 0 0 1-1-1.1l1.2-11a1 1 0 0 1 1-.9H8Zm2 0h4V6a2 2 0 0 0-4 0v1Z"/></svg>
+            </button>
+            <button id="btn-sound" class="icon-btn" type="button" aria-label="Toggle sound" title="Toggle sound">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h3l4-3.6c.6-.6 1.6-.1 1.6.7v11.8c0 .8-1 1.3-1.6.7L7 15H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1Zm12.4-1.6a1 1 0 0 1 1.4.1 6.4 6.4 0 0 1 0 8.9 1 1 0 1 1-1.4-1.4 4.4 4.4 0 0 0 0-6.1 1 1 0 0 1 0-1.5Zm2.9-2.9a1 1 0 0 1 1.4 0 10.6 10.6 0 0 1 0 14.8 1 1 0 1 1-1.4-1.4 8.6 8.6 0 0 0 0-12 1 1 0 0 1 0-1.4Z"/></svg>
+            </button>
+            <button id="btn-menu" class="icon-btn" type="button" aria-label="Pause menu (Escape)" title="Menu (Esc)">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5h14a1.5 1.5 0 0 1 0 3H5a1.5 1.5 0 0 1 0-3Zm0 4h14a1.5 1.5 0 0 1 0 3H5a1.5 1.5 0 0 1 0-3Zm0 4h14a1.5 1.5 0 0 1 0 3H5a1.5 1.5 0 0 1 0-3Z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="stamina" class="hidden" aria-hidden="true"><i></i></div>
+
+        <div id="interaction-prompt" class="hidden" role="status">
+          <span class="prompt-key" id="prompt-key">E</span>
+          <span class="prompt-text" id="prompt-text">Interact</span>
+        </div>
+
+        <div id="toasts" aria-live="polite"></div>
+
+        <!-- ============ MOBILE CONTROLS ============ -->
+        <div id="mobile-controls" class="hidden">
+          <div id="touch-look" aria-hidden="true">
+            <span class="look-hint">Swipe to look</span>
+          </div>
+          <div id="joystick" aria-label="Movement joystick" role="application">
+            <div class="joystick-base"><div class="joystick-knob"></div></div>
+          </div>
+          <div class="touch-buttons">
+            <button id="btn-interact" class="touch-btn touch-interact" type="button" aria-label="Interact">✦</button>
+            <button id="btn-jump" class="touch-btn touch-jump" type="button" aria-label="Jump">↑</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="letterbox" class="hidden" aria-hidden="true"><span class="lb lb-top"></span><span class="lb lb-bottom"></span></div>
+
+      <!-- ============ CHAPTER CARD ============ -->
+      <div id="chapter-card" class="screen chapter-card hidden" aria-hidden="true">
+        <div class="chapter-card-inner">
+          <p class="chapter-card-kicker" id="chapter-card-kicker">Chapter I</p>
+          <h2 class="chapter-card-title" id="chapter-card-title">Whispers of the Wind</h2>
+          <p class="chapter-card-sub" id="chapter-card-sub">Mondstadt Meadow</p>
+          <div class="chapter-rule"><span></span><i>✦</i><span></span></div>
+        </div>
+      </div>
+
+      <!-- ============ DIALOGUE ============ -->
+      <div id="dialogue" class="dialogue-layer hidden" role="dialog" aria-modal="true" aria-labelledby="dialogue-speaker">
+        <div class="dialogue-box">
+          <div class="dialogue-speaker-wrap">
+            <span class="dialogue-portrait" id="dialogue-portrait" aria-hidden="true">✧</span>
+            <h3 id="dialogue-speaker">Wren</h3>
+          </div>
+          <p id="dialogue-text"></p>
+          <div class="dialogue-footer">
+            <span class="dialogue-continue">Click / Space to continue <i>▸</i></span>
+            <button id="dialogue-skip" class="text-btn" type="button">Skip</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ TITLE SCREEN ============ -->
+      <div id="screen-title" class="screen title-screen">
+        <div class="title-sky" aria-hidden="true"></div>
+        <div class="title-top">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 64 64" role="presentation">
+              <path d="M32 4 38 24 58 32 38 40 32 60 26 40 6 32 26 24Z" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <circle cx="32" cy="32" r="7" fill="none" stroke="currentColor" stroke-width="1" />
+              <circle cx="32" cy="32" r="2" fill="currentColor" />
+            </svg>
+          </div>
+          <p class="title-eyebrow">An Original Fantasy Adventure</p>
+        </div>
+        <div class="title-lockup">
+          <h1 class="game-title">PROJECT <span>ASTERIA</span></h1>
+          <p class="game-subtitle">The Chronicles of Teyvat</p>
+          <div class="title-rule"><span></span><i>✦</i><span></span></div>
+          <p class="title-tagline">Where the wind remembers every name it has carried.</p>
+        </div>
+        <div class="title-menu">
+          <button id="btn-start" class="btn btn-primary" type="button">
+            <span class="btn-shine" aria-hidden="true"></span>
+            <span class="btn-label">START ADVENTURE</span>
+          </button>
+          <button id="btn-continue" class="btn hidden" type="button">CONTINUE ADVENTURE</button>
+          <div class="title-menu-row">
+            <button id="btn-title-settings" class="btn btn-ghost" type="button">SETTINGS</button>
+            <button id="btn-title-new" class="btn btn-ghost hidden" type="button">NEW GAME</button>
+          </div>
+          <button id="btn-title-sound" class="sound-toggle" type="button" aria-pressed="true">
+            <span class="sound-icon" aria-hidden="true">♪</span>
+            <span class="sound-label">Sound: On</span>
+          </button>
+        </div>
+        <div class="title-footer">
+          <p class="title-credit">A tribute-inspired tale · Original code, art direction &amp; music by the Asteria project</p>
+          <p class="title-disclaimer">This is an original work. It is not affiliated with, endorsed by, or connected to HoYoverse.</p>
+        </div>
+      </div>
+
+      <!-- ============ LOADING ============ -->
+      <div id="screen-loading" class="screen loading-screen hidden" aria-live="polite">
+        <div class="loading-inner">
+          <div class="loading-sigil" aria-hidden="true"><span></span><span></span><span></span></div>
+          <p class="loading-title" id="loading-title">The wind is rising…</p>
+          <div class="loading-bar"><i id="loading-fill"></i></div>
+          <p class="loading-hint" id="loading-hint">Gathering the chronicle</p>
+        </div>
+      </div>
+
+      <!-- ============ ROTATE ============ -->
+      <div id="screen-rotate" class="screen rotate-screen hidden">
+        <div class="rotate-inner">
+          <div class="rotate-phone" aria-hidden="true">
+            <div class="rotate-phone-screen"><span>✦</span></div>
+          </div>
+          <h2>Turn to landscape</h2>
+          <p>Project Asteria is an adventure meant to be seen across the horizon. Rotate your device to continue.</p>
+        </div>
+      </div>
+
+      <!-- ============ FATAL / UNSUPPORTED ============ -->
+      <div id="screen-fatal" class="screen fatal-screen hidden" role="alertdialog" aria-modal="true">
+        <div class="fatal-inner">
+          <h2 id="fatal-title">The wind could not reach this world</h2>
+          <p id="fatal-message">WebGL could not be initialized on this device.</p>
+          <p class="fatal-hint" id="fatal-hint">Try enabling hardware acceleration, updating your browser, or opening the game on another device.</p>
+          <button id="fatal-reload" class="btn btn-ghost" type="button">Reload</button>
+        </div>
+      </div>
+
+      <!-- ============ GENERATED UI (modals, book, etc.) ============ -->
+      <div id="ui-root"></div>
+    </div>
+    <!--
+      Boot handling. Plain inline JS with inline styles, so it works even when
+      the module and the stylesheets do not load — the case where the page
+      would otherwise sit there half-rendered and silent.
+
+      1. If the entry module fails (a static host publishing the repository
+         source instead of the build), send the visitor to ./game/, where the
+         build is published. Nothing happens when the module runs.
+      2. If the module never evaluates for any reason, say so instead of
+         showing a blank page.
+    -->
+    <script>
+      (function () {
+        // The test harness opts out, and shortens the wait when it opts in.
+        if (window.__asteriaSkipBootWatchdog) return;
+        var WAIT_MS = window.__asteriaBootWaitMs || 12000;
+        var FALLBACK = './game/';
+
+        function failedRequests() {
+          try {
+            return performance
+              .getEntriesByType('resource')
+              .filter(function (entry) {
+                return entry.name && typeof entry.responseStatus === 'number' && entry.responseStatus >= 400;
+              })
+              .map(function (entry) {
+                return entry.name.replace(location.origin, '');
+              });
+          } catch (err) {
+            return [];
+          }
+        }
+
+        function explain(missing) {
+          if (window.projectAsteria) return;
+          if (document.getElementById('boot-error')) return;
+          var box = document.createElement('div');
+          box.id = 'boot-error';
+          box.setAttribute('role', 'alertdialog');
+          box.style.cssText = [
+            'position:fixed', 'inset:0', 'z-index:99999',
+            'display:flex', 'flex-direction:column', 'align-items:center',
+            'justify-content:center', 'gap:14px', 'padding:28px',
+            'text-align:center', 'background:#070b12', 'color:#f2ecdd',
+            'font-family:Georgia,serif', 'line-height:1.6',
+          ].join(';');
+          var heading = document.createElement('h1');
+          heading.textContent = 'The game could not start';
+          heading.style.cssText = 'margin:0;font-size:1.4rem;color:#dcbf85';
+          var body = document.createElement('p');
+          body.style.cssText = 'margin:0;max-width:46ch;opacity:.85';
+          body.textContent = 'The page loaded, but its program files never did. The site is most likely serving the source code instead of the build.';
+          box.appendChild(heading);
+          box.appendChild(body);
+          var list = (missing || []).length && document.createElement('pre');
+          if (list) {
+            list.style.cssText = 'margin:0;max-width:90vw;overflow:auto;font-size:.75rem;opacity:.7;text-align:left';
+            list.textContent = 'Missing: ' + missing.slice(0, 6).join('\n         ');
+            box.appendChild(list);
+          }
+          var hint = document.createElement('p');
+          hint.style.cssText = 'margin:0;max-width:46ch;opacity:.6;font-size:.9rem';
+          hint.textContent = 'Reload the page. If this is a published copy of the project, its deploy needs to publish the build output.';
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = 'Reload';
+          button.style.cssText = [
+            'margin-top:6px', 'padding:10px 22px', 'border-radius:999px', 'cursor:pointer',
+            'border:1px solid rgba(220,191,133,.5)', 'background:transparent',
+            'color:#dcbf85', 'font:inherit', 'letter-spacing:.06em', 'text-transform:uppercase',
+          ].join(';');
+          button.addEventListener('click', function () { location.reload(); });
+          box.appendChild(hint);
+          box.appendChild(button);
+          document.body.appendChild(box);
+        }
+
+        function go(url) {
+          // Indirection so the test harness can observe the navigation.
+          if (typeof window.__asteriaNavigate === 'function') {
+            window.__asteriaNavigate(url);
+            return;
+          }
+          location.replace(url);
+        }
+
+        // Is the built copy published next to this page? Only ask once.
+        var fallbackTried = false;
+        function openBuiltCopy() {
+          if (window.projectAsteria || fallbackTried) return;
+          fallbackTried = true;
+          if (typeof fetch !== 'function') {
+            explain(failedRequests());
+            return;
+          }
+          Promise.resolve()
+            .then(function () {
+              return fetch(FALLBACK + 'index.html', { method: 'HEAD', cache: 'no-store' });
+            })
+            .then(function (response) {
+              if (!response || !response.ok) throw new Error('no published build at ' + FALLBACK);
+              go(FALLBACK);
+            })
+            .catch(function () {
+              explain(failedRequests());
+            });
+        }
+        // Test seam: lets the harness drive the fallback without waiting.
+        window.__asteriaBootFallback = openBuiltCopy;
+
+        // The shortest possible signal: the entry module itself failed to load.
+        var entry = document.getElementById('asteria-entry');
+        if (entry) {
+          entry.addEventListener('error', openBuiltCopy);
+          // Some hosts answer 200 with an HTML error page; the module then
+          // fails during evaluation, which surfaces as a window error.
+          window.addEventListener('error', function (event) {
+            if (event && event.target === entry) openBuiltCopy();
+          }, true);
+        }
+
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            if (!window.projectAsteria) openBuiltCopy();
+          }, WAIT_MS);
+        });
+      })();
+    </script>
+  </body>
+</html>
