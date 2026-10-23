@@ -77,6 +77,9 @@ const { Cinematics } = await import('../src/ui/Cinematics.js');
 const { SecretReveal } = await import('../src/story/SecretReveal.js');
 const { FinalEnding } = await import('../src/story/FinalEnding.js');
 const { createNewState } = await import('../src/game/SaveManager.js');
+const { ShopManager } = await import('../src/game/ShopManager.js');
+const { ShopUI } = await import('../src/ui/ShopUI.js');
+const shopData = await import('../src/story/shopData.js');
 
 let passed = 0;
 let failed = 0;
@@ -677,6 +680,87 @@ await test('the fallback explains itself when no build is published', async () =
   assert.ok(box.textContent.includes('could not start'));
   assert.ok(box.textContent.includes('Reload'));
   assert.equal(probe.window.document.querySelector('a[href*="game"]'), null);
+});
+
+await test("the ledger opens with the purse, three tabs and its wares", async () => {
+  clearDynamicUi();
+  const game = makeGame();
+  game.shop = new ShopManager(game);
+  const shopUI = new ShopUI(game);
+  shopUI.open();
+
+  assert.equal(game.blockers.has('modal'), true, 'the ledger blocks gameplay input');
+  assert.ok(uiRoot().textContent.includes("The Wanderer's Ledger"));
+  assert.equal(uiRoot().querySelectorAll('.shop-tab').length, 3);
+  assert.equal(uiRoot().querySelectorAll('.shop-card').length, shopData.SHOP_ITEMS.length);
+  assert.equal(uiRoot().querySelector('.shop-purse-value').textContent, String(shopData.STARTING_MORA));
+  assert.ok(uiRoot().querySelector('.shop-pity').textContent.includes('Legendary guaranteed'));
+
+  shopUI.close();
+  await sleep(260);
+  assert.equal(game.blockers.has('modal'), false);
+});
+
+await test('buying from the ledger spends mora, repaints the traveler and stays bought', async () => {
+  clearDynamicUi();
+  const applied = [];
+  const game = makeGame();
+  game.player = { visible: true, applyLooks: (looks) => applied.push(looks) };
+  game.shop = new ShopManager(game);
+  const shopUI = new ShopUI(game);
+  shopUI.open();
+
+  const card = uiRoot().querySelector('.shop-card[data-item="cape.ember"]');
+  assert.ok(card, 'the ember cape is on the shelf');
+  card.querySelector('.shop-buy').click();
+  await sleep(0);
+
+  assert.equal(game.shop.mora, shopData.STARTING_MORA - 160);
+  assert.ok(game.shop.owns('look.cape.ember'));
+  assert.equal(applied[applied.length - 1].cape.color, '#8f4436');
+  assert.equal(uiRoot().querySelector('.shop-purse-value').textContent, String(shopData.STARTING_MORA - 160));
+
+  // The rebuilt card now offers to wear it rather than to buy it again.
+  const again = uiRoot().querySelector('.shop-card[data-item="cape.ember"]');
+  assert.equal(again.querySelector('.shop-price').textContent, 'Owned');
+  assert.equal(again.querySelector('.shop-buy').textContent, 'Worn');
+  shopUI.close();
+});
+
+await test('the wishing star spends mora and lists every result with its rarity', async () => {
+  clearDynamicUi();
+  const game = makeGame();
+  game.shop = new ShopManager(game);
+  const shopUI = new ShopUI(game);
+  shopUI.open();
+
+  uiRoot().querySelector('.shop-tab[data-tab="wish"]').click();
+  await sleep(0);
+
+  const ten = uiRoot().querySelector('.shop-wish-ten');
+  assert.equal(ten.disabled, shopData.STARTING_MORA < shopData.WISH_COST_TEN);
+  assert.ok(uiRoot().textContent.includes(String(shopData.PITY_LIMIT)), 'the pity rule is published');
+
+  ten.click();
+  await sleep(0);
+
+  const results = uiRoot().querySelectorAll('.shop-result');
+  assert.equal(results.length, 10, 'a ten-pull shows ten results');
+  for (const result of results) {
+    assert.ok(result.dataset.rarity, 'each result carries its rarity');
+    assert.ok(result.querySelector('.shop-result-name').textContent.length > 0);
+  }
+  assert.equal(
+    uiRoot().querySelector('.shop-purse-value').textContent,
+    String(shopData.STARTING_MORA - shopData.WISH_COST_TEN),
+  );
+
+  // The wardrobe tab lists what was just won and lets it be worn.
+  uiRoot().querySelector('.shop-tab[data-tab="look"]').click();
+  await sleep(0);
+  assert.ok(uiRoot().querySelectorAll('.shop-owned-item').length > 0, 'won looks appear in the wardrobe');
+  assert.ok(uiRoot().querySelector('.shop-look-summary'), 'the current look is summarised');
+  shopUI.close();
 });
 
 console.log(results.join('\n'));

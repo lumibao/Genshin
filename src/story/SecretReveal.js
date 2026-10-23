@@ -83,6 +83,8 @@ export class SecretReveal {
         state.flags.L5_messageRead = true;
         state.flags.L5_pageDiscoveredAt = Date.now();
         this.revealed = true;
+        // The page is the campaign's deepest reward, so the ledger pays for it.
+        this.game.shop?.earnFromEvent('reveal', { label: 'The page remembers you' });
         this.game.saveNow();
       }
       quests.refresh();

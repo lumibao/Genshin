@@ -609,6 +609,34 @@ await test('player controller initialises and can teleport onto terrain', () => 
   assert.equal(Number.isFinite(player.position.x), true);
 });
 
+await test('the traveler wears a look: cape, dye, charm and the companion wisp', () => {
+  const game = makeMockGame();
+  const player = new PlayerController(game);
+  player.setVisible(true);
+
+  player.applyLooks({
+    cape: { color: '#8f4436' },
+    dye: { color: '#2f5f9c', deep: '#1d3d68' },
+    charm: { color: '#fff3c9', emissive: '#ffcc66' },
+    companion: { color: '#ffd9b0', emissive: '#ff9a58', scale: 1.15 },
+    title: 'Starwarden',
+  });
+  assert.equal(player.capeMaterial.color.getHexString(), '8f4436');
+  assert.equal(player.materials.accent.color.getHexString(), '2f5f9c');
+  assert.equal(player.charmMaterial.emissive.getHexString(), 'ffcc66');
+  assert.equal(player.companion.visible, true);
+  assert.equal(player.wornLooks.title, 'Starwarden');
+
+  player.update(0.016, 0.016);
+  assert.ok(Number.isFinite(player.companion.position.y), 'the wisp hovers without blowing up');
+
+  // An empty look set restores the traveler's own clothes.
+  player.applyLooks({});
+  assert.equal(player.companion.visible, false);
+  assert.equal(player.materials.accent.color.getHexString(), '2f6d78');
+  assert.equal(player.capeMaterial.color.getHexString(), '295f6b');
+});
+
 await test('third-person camera responds to look and keeps a finite position', () => {
   const game = makeMockGame();
   game.renderer.width = 1280;
@@ -801,6 +829,176 @@ await test('entering the hidden library pins the journey to chapter V', () => {
   game.levels.onWorldEntered('hiddenLibrary');
   assert.equal(game.state.level, 5);
   assert.equal(game.state.flags.L5_entered, true);
+});
+
+/* ------------------------------------------------------------------ */
+/* The Wanderer's Ledger: wallet, stock and the wishing star          */
+/* ------------------------------------------------------------------ */
+
+const { ShopManager } = await import('../src/game/ShopManager.js');
+const shopData = await import('../src/story/shopData.js');
+
+function makeShopGame({ mora = null } = {}) {
+  const state = { ...createNewState(), started: true };
+  const bus = new EventBus();
+  const applied = [];
+  const game = {
+    state,
+    bus,
+    hud: { toast() {}, setTitleTag() {} },
+    audio: { play() {} },
+    inventory: { add() {} },
+    player: { applyLooks: (looks) => applied.push(looks) },
+    requestSave() {},
+    saveNow() {},
+    applied,
+  };
+  game.shop = new ShopManager(game);
+  if (Number.isFinite(mora)) game.shop.wallet.mora = mora;
+  return game;
+}
+
+await test('a new adventure starts with a purse, and the wallet survives a save round-trip', () => {
+  const fresh = createNewState();
+  assert.equal(fresh.wallet.mora, shopData.STARTING_MORA);
+  assert.deepEqual(fresh.wallet.owned, []);
+  assert.deepEqual(fresh.wallet.equipped, {});
+
+  const saved = normalizeState({
+    ...fresh,
+    started: true,
+    wallet: {
+      mora: 321,
+      owned: ['look.cape.ember', 'look.not-a-real-look'],
+      purchased: ['cape.ember', 'nonsense'],
+      pity: 7,
+      wishes: 4,
+      equipped: { cape: 'look.cape.ember', title: 'look.cape.ember', bogus: 'look.cape.ember' },
+    },
+  });
+  assert.equal(saved.wallet.mora, 321);
+  assert.deepEqual(saved.wallet.owned, ['look.cape.ember'], 'unknown looks are dropped');
+  assert.deepEqual(saved.wallet.purchased, ['cape.ember'], 'unknown stock is dropped');
+  assert.deepEqual(saved.wallet.equipped, { cape: 'look.cape.ember' }, 'only owned looks in their own slot stay worn');
+  assert.equal(saved.wallet.pity, 7);
+});
+
+await test('buying a look spends mora, records it and dresses the traveler', () => {
+  const game = makeShopGame({ mora: 500 });
+  const result = game.shop.buy('cape.ember');
+  assert.equal(result.ok, true);
+  assert.equal(game.shop.mora, 340);
+  assert.ok(game.shop.owns('look.cape.ember'));
+  assert.equal(game.shop.isEquipped('look.cape.ember'), true);
+  assert.equal(game.state.wallet.equipped.cape, 'look.cape.ember');
+
+  // The model is repainted with the cape's own colour, not the default teal.
+  const last = game.applied[game.applied.length - 1];
+  assert.equal(last.cape.color, '#8f4436');
+
+  // Buying the same ware twice is refused rather than double-charging.
+  const again = game.shop.buy('cape.ember');
+  assert.equal(again.ok, false);
+  assert.equal(again.reason, 'owned');
+  assert.equal(game.shop.mora, 340);
+});
+
+await test('an empty purse cannot buy, and stock never touches story items', () => {
+  const game = makeShopGame({ mora: 10 });
+  const denied = game.shop.buy('title.starwarden');
+  assert.equal(denied.ok, false);
+  assert.equal(denied.reason, 'mora');
+  assert.equal(game.shop.mora, 10);
+
+  const storyIds = ['windFragment', 'archiveKey', 'archiveMap', 'archiveFragment', 'chroniclePage', 'starlitSigil', 'celestialSeal'];
+  for (const item of shopData.SHOP_ITEMS) {
+    assert.equal(storyIds.includes(item.id), false, `${item.id} must never be a story item`);
+    assert.ok(shopData.LOOKS[item.look], `${item.id} points at a real look`);
+    assert.equal(shopData.slotForLook(item.look), shopData.LOOKS[item.look].slot);
+  }
+});
+
+await test('wishes never repeat a look until the pool is exhausted', () => {
+  const game = makeShopGame({ mora: 100000 });
+  const seen = new Set();
+  for (let i = 0; i < shopData.WISH_POOL.length; i++) {
+    const result = game.shop.wish(1, { roll: () => 0.42 });
+    assert.equal(result.ok, true);
+    const [entry] = result.results;
+    assert.equal(entry.duplicate, false, 'a duplicate arrived before the pool ran out');
+    assert.equal(seen.has(entry.look), false);
+    seen.add(entry.look);
+  }
+  assert.equal(seen.size, shopData.WISH_POOL.length);
+  assert.equal(game.shop.unlockedCount, game.shop.totalLooks);
+});
+
+await test('pity guarantees a legendary and then resets', () => {
+  const game = makeShopGame({ mora: 100000 });
+  game.shop.wallet.pity = shopData.PITY_LIMIT - 1;
+  const result = game.shop.wish(1, { roll: () => 0.999 });
+  const [entry] = result.results;
+  assert.equal(entry.rarity, 'legendary', 'the pity draw must be legendary');
+  assert.equal(entry.pityHit, true);
+  assert.equal(game.shop.pity, 0, 'pity resets after a legendary');
+
+  // And a guaranteed pull is advertised correctly.
+  game.shop.wallet.pity = 3;
+  assert.equal(game.shop.pityRemaining, shopData.PITY_LIMIT - 3);
+});
+
+await test('duplicates convert into mora once every look is owned', () => {
+  const game = makeShopGame({ mora: 100000 });
+  game.shop.wish(10, { roll: () => 0.42 });
+  while (game.shop.unlockedCount < game.shop.totalLooks) game.shop.wish(1, { roll: () => 0.42 });
+
+  const before = game.shop.mora;
+  const result = game.shop.wish(1, { roll: () => 0.1 });
+  const [entry] = result.results;
+  assert.equal(entry.duplicate, true);
+  assert.equal(entry.refund, shopData.DUPLICATE_REFUND);
+  assert.equal(game.shop.mora, before - shopData.WISH_COST + shopData.DUPLICATE_REFUND);
+});
+
+await test('a ten-pull costs the bundle price and returns ten results', () => {
+  const game = makeShopGame({ mora: 1000 });
+  const before = game.shop.mora;
+  const result = game.shop.wish(10, { roll: () => 0.5 });
+  assert.equal(result.ok, true);
+  assert.equal(result.results.length, 10);
+  assert.equal(result.cost, shopData.WISH_COST_TEN);
+  assert.equal(game.shop.mora, before - shopData.WISH_COST_TEN);
+});
+
+await test('wearing a look is reversible, and resetLooks restores the traveler', () => {
+  const game = makeShopGame({ mora: 500 });
+  game.shop.buy('charm.wind');
+  assert.equal(game.shop.getLooks().charm.color, '#d8efbe');
+  game.shop.resetLooks();
+  assert.deepEqual(game.shop.getLooks(), { title: null, cape: null, charm: null, dye: null, companion: null });
+  assert.deepEqual(game.shop.wallet.equipped, {});
+});
+
+await test('the ruins puzzle has three mechanisms, a compass, and no fourth pillar', async () => {
+  const game = makeMockGame();
+  const world = new worlds.AncientRuins({ game, level: 2 });
+  await world.build();
+
+  assert.deepEqual(Object.keys(world.mechanisms).sort(), ['east', 'north', 'south']);
+  assert.equal(world.mechanisms.west, undefined, 'there is no western mechanism');
+
+  // Every direction is written on the floor and above each mechanism, so a
+  // player never has to guess which pillar is which.
+  for (const letter of ['N', 'S', 'E', 'W', 'MURAL']) {
+    assert.ok(
+      Object.keys(world._letterCache || {}).some((key) => key.startsWith(`${letter}|`)),
+      `the floor compass is missing ${letter}`,
+    );
+  }
+  for (const [id, letter] of [['east', 'E'], ['north', 'N'], ['south', 'S']]) {
+    const prompt = world.interactables.find((entry) => entry.id === `mechanism-${id}`).prompt();
+    assert.ok(prompt.includes(id) && prompt.includes(`(${letter})`), `prompt for ${id} names its direction: ${prompt}`);
+  }
 });
 
 /* ------------------------------------------------------------------ */

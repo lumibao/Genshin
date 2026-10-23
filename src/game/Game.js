@@ -18,11 +18,13 @@ import { WorldManager } from './WorldManager.js';
 import { QuestManager } from './QuestManager.js';
 import { LevelManager } from './LevelManager.js';
 import { InventoryManager } from './InventoryManager.js';
+import { ShopManager } from './ShopManager.js';
 import { SaveManager, createNewState, normalizeSettings } from './SaveManager.js';
 import { AudioManager } from './AudioManager.js';
 import { HUD } from '../ui/HUD.js';
 import { DialogueUI } from '../ui/DialogueUI.js';
 import { InventoryUI } from '../ui/InventoryUI.js';
+import { ShopUI } from '../ui/ShopUI.js';
 import { JournalUI } from '../ui/JournalUI.js';
 import { SettingsUI, PauseMenu } from '../ui/SettingsUI.js';
 import { BookUI } from '../ui/BookUI.js';
@@ -64,6 +66,7 @@ export class Game {
     this._orientationBlocked = false;
     this._fatal = false;
     this._revealRequested = false;
+    this._lockPauseTimer = null;
   }
 
   /* ================================================================ */
@@ -97,6 +100,7 @@ export class Game {
     this.sceneManager = new SceneManager();
     this.cameraController = new CameraController(this);
     this.input = new InputManager(this.renderer.canvas);
+    this.input.onPointerLockChange = (locked) => this._onPointerLockChange(locked);
     this.input.setSensitivity(this.settings.sensitivity);
     this.input.invertY = this.settings.invertY;
     this.collision = new CollisionSystem();
@@ -109,11 +113,14 @@ export class Game {
     this.player = new PlayerController(this);
     // The player lives outside worldRoot so swapping worlds never disposes them.
     this.sceneManager.scene.add(this.player.group);
+    // After the player, so any owned looks are worn from the first frame.
+    this.shop = new ShopManager(this);
     this.worlds = new WorldManager(this);
     this.interactions = new InteractionSystem(this);
     this.hud = new HUD(this);
     this.dialogue = new DialogueUI(this);
     this.inventoryUI = new InventoryUI(this);
+    this.shopUI = new ShopUI(this);
     this.journalUI = new JournalUI(this);
     this.settingsUI = new SettingsUI(this);
     this.pauseMenu = new PauseMenu(this);
@@ -180,6 +187,12 @@ export class Game {
     });
 
     this.bus.on('level:completed', ({ levelId }) => this._onLevelComplete(levelId));
+
+    // Small, steady income so the ledger is never out of reach for a reader
+    // who explores instead of grinding. Cosmetic-only, so it cannot break a chapter.
+    this.bus.on('inventory:changed', ({ id, amount }) => {
+      if (id === 'windFragment' && amount > 0) this.shop?.earnFromEvent('fragment');
+    });
 
     this.bus.on('world:entered', ({ world }) => {
       this.player.setShadows(this.renderer.tier === 'high');
@@ -304,6 +317,7 @@ export class Game {
     // to be re-pointed at the freshly loaded object.
     this.inventory.items = state.items || {};
     this.state.items = this.inventory.items;
+    this.shop?.refresh();
     this.quests.start();
   }
 
@@ -549,6 +563,10 @@ export class Game {
       this.journalUI.open();
       return;
     }
+    if (this.input.consumePress('shop')) {
+      this.shopUI.open();
+      return;
+    }
     if (this.input.consumePress('help')) {
       this.settingsUI.showControls();
       return;
@@ -576,12 +594,47 @@ export class Game {
     return this.isInputBlocked() || this.transitioning;
   }
 
+  /**
+   * Browsers swallow the Escape keydown that releases pointer lock, so a
+   * keyboard player pressing Esc used to lose the mouse and get no menu at all
+   * — which reads as "the menu is broken". Treat the release itself as the
+   * pause request, with every legitimate release (dialogues, modals, travel,
+   * the ending, tab switches) already guarded by a blocker.
+   */
+  _onPointerLockChange(locked) {
+    clearTimeout(this._lockPauseTimer);
+    this._lockPauseTimer = null;
+    if (locked) return;
+    if (!this.started || this.titleMode || this.transitioning || this.paused) return;
+    if (this.blockers.size) return;
+    this._lockPauseTimer = setTimeout(() => {
+      this._lockPauseTimer = null;
+      if (!this.started || this.titleMode || this.transitioning || this.paused) return;
+      if (this.blockers.size || document.pointerLockElement) return;
+      this.openPauseMenu();
+    }, 240);
+  }
+
   openPauseMenu() {
     if (this.paused || this.titleMode || !this.started) return;
+    clearTimeout(this._lockPauseTimer);
+    this._lockPauseTimer = null;
     this.paused = true;
     document.body.classList.add('is-paused');
     this.input.exitPointerLock();
     this.pauseMenu.open();
+  }
+
+  /**
+   * A panel opened from the pause menu closes back into the pause menu.
+   * Without this, closing the satchel left the game paused with no menu on
+   * screen and no Escape handler running — which reads as a frozen game.
+   */
+  returnToPause() {
+    if (!this.paused) return;
+    this.paused = false;
+    document.body.classList.remove('is-paused');
+    this.openPauseMenu();
   }
 
   resume() {
@@ -795,6 +848,8 @@ export class Game {
     this.audio.play('chapter');
     this.cinematics.completeChapter(levelId).catch(() => {});
 
+    this.shop?.earnFromEvent('chapter', { label: 'Chapter reward' });
+
     const reward = this.levels.rewardFor(levelId);
     if (reward) {
       this.toast({
@@ -835,6 +890,7 @@ export class Game {
     if (!ok) return false;
     this.state.flags.ending_started = true;
     this.state.endingSeen = true;
+    this.shop?.earnFromEvent('ending', { label: 'The chronicle closes' });
     this.saveNow();
 
     // The ending is a quiet, hands-off scene: no movement, no HUD, and a mouse

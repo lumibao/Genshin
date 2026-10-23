@@ -1,0 +1,509 @@
+/* ============================================================
+   PROJECT ASTERIA — shop.css
+   The Wanderer's Ledger: stock, the wishing star, and the
+   traveler's wardrobe.
+   ============================================================ */
+
+.modal.modal--shop {
+  width: min(960px, 94vw);
+}
+
+.modal--shop .modal-body {
+  padding-top: 6px;
+}
+
+.shop {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ------------------------------ Header ------------------------------ */
+
+.shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid rgba(232, 201, 138, 0.24);
+  background: linear-gradient(150deg, rgba(24, 32, 46, 0.7), rgba(10, 15, 24, 0.55));
+  border-radius: 3px;
+}
+
+.shop-purse {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  color: var(--gold-bright);
+  font-size: 1.25rem;
+}
+
+.shop-purse small {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.shop-mora-glyph {
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(220, 191, 133, 0.55);
+}
+
+.shop-pity {
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-dim);
+  font-style: italic;
+}
+
+/* ------------------------------ Tabs ------------------------------ */
+
+.shop-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(232, 201, 138, 0.2);
+}
+
+.shop-tab {
+  appearance: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.shop-tab:hover,
+.shop-tab:focus-visible {
+  color: var(--gold-bright);
+}
+
+.shop-tab.is-active {
+  color: var(--gold-bright);
+  border-color: rgba(232, 201, 138, 0.32);
+  background: linear-gradient(180deg, rgba(232, 201, 138, 0.12), rgba(232, 201, 138, 0));
+}
+
+.shop-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 260px;
+}
+
+.shop-note {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--ink-mid);
+  font-style: italic;
+}
+
+.shop-note strong {
+  color: var(--gold-bright);
+  font-style: normal;
+}
+
+/* ------------------------------ Stock ------------------------------ */
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.shop-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(232, 201, 138, 0.2);
+  background: linear-gradient(160deg, rgba(22, 31, 45, 0.66), rgba(9, 14, 22, 0.58));
+  transition: border-color 0.25s, transform 0.25s var(--ease-out), box-shadow 0.25s;
+}
+
+.shop-card:hover {
+  border-color: rgba(247, 231, 184, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.shop-card.rarity--rare {
+  border-color: rgba(169, 211, 240, 0.34);
+}
+
+.shop-card.rarity--legendary {
+  border-color: rgba(242, 215, 155, 0.5);
+  box-shadow: inset 0 0 30px rgba(242, 215, 155, 0.08);
+}
+
+.shop-card.is-poor {
+  opacity: 0.72;
+}
+
+.shop-card-glyph {
+  font-size: 1.5rem;
+  color: var(--gold-bright);
+  line-height: 1;
+}
+
+.shop-card h4 {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-light);
+}
+
+.shop-card-meta {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.shop-card p {
+  margin: 2px 0 8px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--ink-mid);
+  flex: 1;
+}
+
+.shop-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shop-price {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.shop-card .btn {
+  padding: 6px 14px;
+  font-size: 0.72rem;
+}
+
+/* --------------------------- Wishing star --------------------------- */
+
+.shop-wish {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shop-wish-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.shop-wish-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shop-cost {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  opacity: 0.85;
+}
+
+.shop-wish-result.is-revealing .shop-results {
+  animation: shop-reveal 0.5s var(--ease-out) both;
+}
+
+@keyframes shop-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shop-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.shop-result {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 9px 12px;
+  border: 1px solid rgba(232, 201, 138, 0.2);
+  background: rgba(12, 18, 28, 0.6);
+  animation: shop-flare 0.7s var(--ease-out) both;
+}
+
+.shop-result.rarity--rare {
+  border-color: rgba(169, 211, 240, 0.4);
+}
+
+.shop-result.rarity--legendary {
+  border-color: rgba(242, 215, 155, 0.62);
+  background: linear-gradient(140deg, rgba(94, 76, 38, 0.4), rgba(12, 18, 28, 0.7));
+  box-shadow: 0 0 22px rgba(242, 215, 155, 0.16);
+}
+
+.shop-result-glyph {
+  grid-row: 1 / span 2;
+  font-size: 1.3rem;
+  color: var(--gold-bright);
+}
+
+.shop-result-name {
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-light);
+}
+
+.shop-result-note {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.shop-result.rarity--legendary .shop-result-note {
+  color: #f2d79b;
+}
+
+@keyframes shop-flare {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.shop-odds {
+  padding: 12px 14px;
+  border: 1px solid rgba(232, 201, 138, 0.16);
+  background: rgba(10, 15, 24, 0.4);
+}
+
+.shop-odds h4 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.shop-odds ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.84rem;
+  color: var(--ink-mid);
+}
+
+.rarity {
+  display: inline-block;
+  min-width: 84px;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.66rem;
+}
+
+.rarity--common {
+  color: #cfc4ad;
+}
+
+.rarity--rare {
+  color: #a9d3f0;
+}
+
+.rarity--legendary {
+  color: #f2d79b;
+}
+
+/* ------------------------------ Wardrobe ------------------------------ */
+
+.shop-look-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(232, 201, 138, 0.18);
+  background: rgba(10, 15, 24, 0.42);
+}
+
+.shop-look-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shop-look-summary dt {
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.shop-look-summary dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-light);
+}
+
+.shop-owned {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shop-owned h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.shop-owned-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.shop-owned-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.shop-owned-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.shop-owned-item {
+  appearance: none;
+  border: 1px solid rgba(232, 201, 138, 0.22);
+  background: rgba(14, 20, 31, 0.6);
+  color: var(--ink-mid);
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.shop-owned-item:hover,
+.shop-owned-item:focus-visible {
+  color: var(--gold-bright);
+  border-color: rgba(247, 231, 184, 0.5);
+}
+
+.shop-owned-item.is-worn {
+  color: var(--ink);
+  background: linear-gradient(160deg, var(--gold-bright), var(--gold-deep));
+  border-color: var(--gold-bright);
+}
+
+.shop-owned-item.rarity--legendary:not(.is-worn) {
+  border-color: rgba(242, 215, 155, 0.45);
+}
+
+.shop-reset-look {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+/* ------------------------------ Message ------------------------------ */
+
+.shop-message {
+  margin: 4px 0 0;
+  min-height: 1.1rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: var(--ink-mid);
+  transition: color 0.2s;
+}
+
+.shop-message[data-kind='warn'] {
+  color: var(--danger);
+}
+
+.shop-message[data-kind='ok'] {
+  color: var(--ok);
+}
+
+.shop-message.is-flashing {
+  animation: shop-flash 0.5s var(--ease-out) both;
+}
+
+@keyframes shop-flash {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .shop-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .shop-results {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-wish-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}

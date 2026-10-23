@@ -5,6 +5,11 @@
  * be woken in the order carved on the western mural. A portcullis gate lifts
  * when the sequence is correct, revealing the first chronicle fragment and the
  * stair down into the archive.
+ *
+ * There are exactly three mechanisms — east, north and south. The mural stands
+ * on the western wall and is a signpost, not a fourth pillar, so the courtyard
+ * floor carries a compass rose and every mechanism carries its own direction
+ * letter. A player should never have to hunt for a west that does not exist.
  */
 import * as THREE from 'three';
 import { BaseWorld } from './BaseWorld.js';
@@ -73,6 +78,7 @@ export class AncientRuins extends BaseWorld {
     this._buildSky();
     this._buildLights(highQuality);
     this._buildGround();
+    this._buildCompass();
     this._buildWalls(highQuality);
     this._buildMural();
     this._buildMechanisms();
@@ -85,6 +91,11 @@ export class AncientRuins extends BaseWorld {
     } else {
       this.game.hud.showPuzzlePanel?.('The Winds Remember', SEQUENCE.length);
       this.game.hud.setPuzzleProgress?.(0, 0);
+      this.game.hud.toast({
+        icon: '✎',
+        text: 'Three mechanisms: east, north, south. Read the mural on the west wall for the order.',
+        variant: 'hint',
+      });
     }
   }
 
@@ -193,6 +204,105 @@ export class AncientRuins extends BaseWorld {
     }
   }
 
+  /** Flat compass rose on the courtyard floor — the world's own signpost. */
+  _buildCompass() {
+    const group = new THREE.Group();
+    const stone = new THREE.MeshStandardMaterial({ color: '#9c9a8a', roughness: 1 });
+    const inlay = new THREE.MeshStandardMaterial({
+      color: '#cfe6da',
+      emissive: '#7fb8a8',
+      emissiveIntensity: 0.5,
+      roughness: 0.6,
+    });
+
+    const ring = new THREE.Mesh(new THREE.RingGeometry(2.55, 2.8, 40), stone);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.055;
+    ring.receiveShadow = true;
+    group.add(ring);
+
+    const inner = new THREE.Mesh(new THREE.RingGeometry(1.05, 1.16, 32), inlay);
+    inner.rotation.x = -Math.PI / 2;
+    inner.position.y = 0.055;
+    group.add(inner);
+
+    // Four spokes, with the west spoke pointing at the mural.
+    const spokes = [
+      [0, -2.8, 0.1, 5.6],
+      [0, 2.8, 0.1, 5.6],
+      [2.8, 0, 5.6, 0.1],
+      [-2.8, 0, 5.6, 0.1],
+    ];
+    for (const [x, z, w, d] of spokes) {
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, d), inlay);
+      spoke.position.set(x / 2, 0.05, z / 2);
+      group.add(spoke);
+    }
+
+    const letters = [
+      ['N', 0, -3.5],
+      ['S', 0, 3.5],
+      ['E', 3.5, 0],
+      ['W', -3.5, 0],
+    ];
+    for (const [letter, x, z] of letters) {
+      const plate = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.1, 1.1),
+        new THREE.MeshBasicMaterial({
+          map: this._letterTexture(letter),
+          transparent: true,
+          opacity: 0.92,
+          depthWrite: false,
+        }),
+      );
+      plate.rotation.x = -Math.PI / 2;
+      plate.position.set(x, 0.07, z);
+      group.add(plate);
+    }
+
+    // "Mural" tag under the W, so the far wall reads as a signpost.
+    const muralTag = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.6, 0.8),
+      new THREE.MeshBasicMaterial({
+        map: this._letterTexture('MURAL', '#c9e8dc', 1),
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+      }),
+    );
+    muralTag.rotation.x = -Math.PI / 2;
+    muralTag.position.set(-5.6, 0.07, 0);
+    group.add(muralTag);
+
+    this.group.add(group);
+  }
+
+  /** Canvas text used for the floor compass and the mechanism letters. */
+  _letterTexture(text, color = '#dfeee4', aspect = 1) {
+    this._letterCache ||= {};
+    const key = `${text}|${color}|${aspect}`;
+    if (this._letterCache[key]) return this._letterCache[key];
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = Math.max(64, Math.round(256 / aspect));
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const size = text.length > 2 ? 74 : 190;
+      ctx.font = `600 ${size}px Georgia, "Palatino Linotype", serif`;
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 6);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.anisotropy = 4;
+    this._letterCache[key] = texture;
+    return texture;
+  }
+
   _buildWalls(highQuality) {
     const wallMat = new THREE.MeshStandardMaterial({ color: '#8d8b7d', roughness: 1 });
     const addWall = (x, z, length, rotation, height = 3.4) => {
@@ -282,6 +392,7 @@ export class AncientRuins extends BaseWorld {
       { id: 'north', x: 3.6, z: -13, color: '#bcd6f0' },
       { id: 'south', x: 7.4, z: 12.6, color: '#d8c8f0' },
     ];
+    const letters = { east: 'E', north: 'N', south: 'S' };
     for (const spec of specs) {
       const mechanism = createMechanism({ color: spec.color, seed: spec.x });
       this.add(mechanism, { x: spec.x, z: spec.z, y: this.heightAt(spec.x, spec.z), rotation: spec.x });
@@ -289,13 +400,27 @@ export class AncientRuins extends BaseWorld {
       this.addColliderCircle(spec.x, spec.z, 0.85);
       this.mechanisms[spec.id] = mechanism;
 
+      // A direction letter floating over each mechanism. Their prompts and the
+      // floor compass use the same words, so the mural's order is unambiguous.
+      const letter = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: this._letterTexture(letters[spec.id], '#f2e3b8'),
+          transparent: true,
+          depthWrite: false,
+          opacity: 0.9,
+        }),
+      );
+      letter.position.set(spec.x, this.heightAt(spec.x, spec.z) + 2.75, spec.z);
+      letter.scale.set(0.9, 0.9, 1);
+      this.group.add(letter);
+
       this.addInteractable({
         id: `mechanism-${spec.id}`,
         x: spec.x,
         z: spec.z,
         y: this.heightAt(spec.x, spec.z) + 1.4,
         radius: 2.8,
-        prompt: () => `Wake the ${spec.id} wind mechanism`,
+        prompt: () => `Wake the ${spec.id} wind mechanism ${letters[spec.id] ? `(${letters[spec.id]})` : ''}`,
         glyph: '✧',
         action: () => this.activateMechanism(spec.id),
         marker: 'poi',
@@ -342,13 +467,13 @@ export class AncientRuins extends BaseWorld {
     if (this.wrongAttempts === 2) {
       this.game.hud.toast({
         icon: '✎',
-        text: 'Hint — the western mural shows the order: east, then north, then south.',
+        text: 'Hint — the mural on the west wall names the order: east, then north, then south. There is no fourth mechanism; west is where you read.',
         variant: 'hint',
       });
     } else if (this.wrongAttempts >= 4) {
       this.game.hud.toast({
         icon: '✎',
-        text: 'Hint — wake the eastern mechanism first. The others follow.',
+        text: 'Hint — press E at the eastern mechanism (letter E, right of the gate). Then north, then south.',
         variant: 'hint',
       });
     }

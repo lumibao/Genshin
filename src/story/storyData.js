@@ -137,6 +137,7 @@ export const LORE = {
     pages: [
       'The mural shows three winds in a line: the first rises from the east and is drawn in thin lines; the second falls from the north, broad and heavy; the third curls inward from the south and is drawn with a spiral.',
       'Beneath the winds, in a script older than the stones, a line has been cut: \u201cWake them as the wind wakes the world \u2014 in the order it was given.\u201d',
+      'At the foot of the mural a mason has scratched a plain note in a later hand: \u201cThere are three pillars, not four. East, north, south. This wall is the west, and the west only tells you the order \u2014 it does not answer.\u201d',
     ],
   },
   archiveLedger: {

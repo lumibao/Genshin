@@ -117,9 +117,10 @@ export class PlayerController {
 
     this.torso.add(chest, waist, belt, collar, skirt, emblem);
 
-    // ---- Arms
-    const armGeo = new THREE.CylinderGeometry(0.055, 0.048, 0.38, 7);
-    const handGeo = new THREE.SphereGeometry(0.055, 8, 6);
+    // ---- Arms (shoulder → elbow → wrist, so a run can bend at the elbow)
+    const upperGeo = new THREE.CylinderGeometry(0.055, 0.05, 0.2, 7);
+    const foreGeo = new THREE.CylinderGeometry(0.048, 0.042, 0.19, 7);
+    const handGeo = new THREE.SphereGeometry(0.052, 8, 6);
     const armL = new THREE.Group();
     const armR = new THREE.Group();
     for (const [arm, sign] of [
@@ -127,17 +128,52 @@ export class PlayerController {
       [armR, 1],
     ]) {
       arm.position.set(sign * 0.235, 1.28, 0);
-      const upper = new THREE.Mesh(armGeo, cloth);
-      upper.position.y = -0.17;
-      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.062, 0.06, 8), accentDeep);
-      cuff.position.y = -0.32;
+      // Soft shoulder cap so the silhouette does not read as a tube.
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.062, 9, 7), cloth);
+      shoulder.position.y = -0.02;
+      const upper = new THREE.Mesh(upperGeo, cloth);
+      upper.position.y = -0.12;
+      const bracer = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.052, 0.05, 8), gold);
+      bracer.position.y = -0.21;
+
+      const forearm = new THREE.Group();
+      forearm.position.y = -0.22;
+      const fore = new THREE.Mesh(foreGeo, skin);
+      fore.position.y = -0.09;
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.05, 0.07, 8), accentDeep);
+      cuff.position.y = -0.05;
       const hand = new THREE.Mesh(handGeo, skin);
-      hand.position.y = -0.4;
-      arm.add(upper, cuff, hand);
+      hand.position.y = -0.2;
+      hand.scale.set(0.9, 1.15, 0.7);
+      forearm.add(fore, cuff, hand);
+
+      arm.add(shoulder, upper, bracer, forearm);
+      arm.userData.forearm = forearm;
+      arm.userData.shoulderY = arm.position.y;
       root.add(arm);
     }
     this.armL = armL;
     this.armR = armR;
+    this.forearmL = armL.userData.forearm;
+    this.forearmR = armR.userData.forearm;
+
+    // ---- Scarf: a short wrap with two animated tails
+    const scarfMat = new THREE.MeshStandardMaterial({ color: '#c8d8d2', roughness: 0.92, metalness: 0 });
+    const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.042, 7, 14), scarfMat);
+    scarf.rotation.x = Math.PI / 2;
+    scarf.position.y = 1.4;
+    scarf.scale.set(1.15, 1, 0.9);
+    root.add(scarf);
+
+    this.scarfTails = new THREE.Group();
+    this.scarfTails.position.set(0.06, 1.37, -0.09);
+    for (const [index, sign] of [[0, 1], [1, -1]]) {
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.3, 0.02), scarfMat);
+      tail.position.set(sign * 0.055, -0.15, -0.02 - index * 0.02);
+      tail.rotation.z = sign * 0.16;
+      this.scarfTails.add(tail);
+    }
+    root.add(this.scarfTails);
 
     // ---- Head
     this.head = new THREE.Group();
@@ -178,14 +214,18 @@ export class PlayerController {
     this.ponytail = ponytail;
 
     // ---- Cape
-    const capeGeo = new THREE.PlaneGeometry(0.46, 0.92, 6, 8);
+    const capeGeo = new THREE.PlaneGeometry(0.46, 0.94, 8, 10);
     {
       const pos = capeGeo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const y = pos.getY(i);
+        const t = (y + 0.47) / 0.94; // 0 at the hem, 1 at the shoulders
+        // Narrow at the shoulders, flared at the hem, and curled around the back.
+        const width = 0.62 + (1 - t) * 0.42;
+        pos.setX(i, pos.getX(i) * width);
         const x = pos.getX(i);
-        const t = (y + 0.46) / 0.92;
-        pos.setZ(i, Math.sin(t * Math.PI) * 0.12 + Math.abs(x) * 0.14);
+        pos.setZ(i, Math.sin(t * Math.PI) * 0.1 + Math.abs(x) * 0.5 + (1 - t) * 0.04);
+        pos.setY(i, y - (1 - t) * (1 - t) * 0.04);
       }
       capeGeo.computeVertexNormals();
     }
@@ -207,19 +247,44 @@ export class PlayerController {
     // ---- Wind sigil pendant (subtle magical identity)
     this.pendant = new THREE.Group();
     this.pendant.position.set(0.17, 1.2, 0.15);
-    const crystal = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.045, 0),
-      new THREE.MeshStandardMaterial({
-        color: '#bff0e4',
-        emissive: '#6fd8c6',
-        emissiveIntensity: 1.3,
-        roughness: 0.2,
-        metalness: 0.1,
-      }),
-    );
+    this.charmMaterial = new THREE.MeshStandardMaterial({
+      color: '#bff0e4',
+      emissive: '#6fd8c6',
+      emissiveIntensity: 1.3,
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.048, 0), this.charmMaterial);
     this.pendant.add(crystal);
     this.pendantCrystal = crystal;
     root.add(this.pendant);
+
+    // ---- Companion wisp: only visible when a companion look is worn
+    this.companionMaterial = new THREE.MeshStandardMaterial({
+      color: '#d9e6ff',
+      emissive: '#8fb4ff',
+      emissiveIntensity: 1.6,
+      roughness: 0.25,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.94,
+    });
+    this.companion = new THREE.Group();
+    this.companion.position.set(-0.55, 1.42, -0.18);
+    const wispCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.062, 0), this.companionMaterial);
+    const wispHalo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.115, 0.008, 5, 20),
+      new THREE.MeshBasicMaterial({ color: '#cfe0ff', transparent: true, opacity: 0.6 }),
+    );
+    wispHalo.rotation.x = Math.PI / 2.6;
+    const wispHalo2 = wispHalo.clone();
+    wispHalo2.rotation.set(Math.PI / 2, 0.6, 0.4);
+    wispHalo2.scale.setScalar(0.78);
+    this.companion.add(wispCore, wispHalo, wispHalo2);
+    this.companionCore = wispCore;
+    this.companionHalos = [wispHalo, wispHalo2];
+    this.companion.visible = false;
+    root.add(this.companion);
 
     // Blob shadow (cheap, always readable).
     const shadowMat = new THREE.MeshBasicMaterial({
@@ -248,6 +313,39 @@ export class PlayerController {
     this.model.traverse((obj) => {
       if (obj.isMesh) obj.castShadow = enabled;
     });
+  }
+
+  /**
+   * Wear the looks bought or wished for at the Wanderer's Ledger.
+   * Everything is optional: `{}` restores the traveler's own clothes.
+   */
+  applyLooks(looks = {}) {
+    const accent = looks.dye || { color: '#2f6d78', deep: '#1d4854' };
+    this.materials.accent.color.set(accent.color);
+    this.materials.accentDeep.color.set(accent.deep);
+
+    const cape = looks.cape || { color: '#295f6b', deep: '#1a3f48' };
+    this.capeMaterial.color.set(cape.color);
+
+    const charm = looks.charm || { color: '#bff0e4', emissive: '#6fd8c6' };
+    this.charmMaterial.color.set(charm.color);
+    this.charmMaterial.emissive.set(charm.emissive);
+
+    const companion = looks.companion || null;
+    this.companion.visible = !!companion;
+    if (companion) {
+      this.companionMaterial.color.set(companion.color);
+      this.companionMaterial.emissive.set(companion.emissive);
+      this.companion.scale.setScalar(companion.scale || 1);
+    }
+
+    this.wornLooks = {
+      title: looks.title || null,
+      cape: looks.cape ? cape.color : null,
+      charm: looks.charm ? charm.color : null,
+      companion: companion ? companion.color : null,
+    };
+    return this.wornLooks;
   }
 
   /* ---------------------------------------------------------------- */
@@ -417,6 +515,8 @@ export class PlayerController {
     const speedRatio = THREE.MathUtils.clamp(this.speed / RUN_SPEED, 0, 1);
     const walkCycle = t * (4.2 + speedRatio * 5.4);
     const swing = Math.sin(walkCycle) * (0.18 + speedRatio * 0.62);
+    const stride = this.isMoving ? speedRatio : 0;
+    const ease = Math.min(1, dt * 7);
 
     if (this.grounded) {
       this.legL.rotation.x = this.isMoving ? swing : 0;
@@ -425,6 +525,15 @@ export class PlayerController {
       this.armR.rotation.x = this.isMoving ? swing * 0.85 : -Math.sin(t * 1.6) * 0.03;
       this.armL.rotation.z = 0.06;
       this.armR.rotation.z = -0.06;
+
+      // Elbows bend more the faster the traveler runs, and lift a little at the
+      // front of the swing so the arms read as pumping rather than pendulums.
+      const pump = Math.max(0, Math.sin(walkCycle));
+      const elbow = -0.12 - stride * (0.42 + pump * 0.3);
+      this.forearmL.rotation.x = THREE.MathUtils.lerp(this.forearmL.rotation.x, elbow, ease);
+      this.forearmR.rotation.x = THREE.MathUtils.lerp(this.forearmR.rotation.x, elbow, ease);
+      this.forearmL.rotation.z = 0.05;
+      this.forearmR.rotation.z = -0.05;
     } else {
       this.legL.rotation.x = 0.42;
       this.legR.rotation.x = -0.28;
@@ -432,16 +541,28 @@ export class PlayerController {
       this.armR.rotation.x = -0.5;
       this.armL.rotation.z = 0.28;
       this.armR.rotation.z = -0.28;
+      this.forearmL.rotation.x = THREE.MathUtils.lerp(this.forearmL.rotation.x, -0.55, ease);
+      this.forearmR.rotation.x = THREE.MathUtils.lerp(this.forearmR.rotation.x, -0.55, ease);
     }
 
-    // Body bob & lean
-    const bob = this.isMoving ? Math.abs(Math.sin(walkCycle)) * 0.035 * (0.4 + speedRatio) : Math.sin(t * 1.7) * 0.012;
+    // Body bob & lean. Idle keeps a slow breath and a small weight shift.
+    const breathing = Math.sin(t * 1.35) * 0.006;
+    const bob = this.isMoving
+      ? Math.abs(Math.sin(walkCycle)) * 0.035 * (0.4 + speedRatio)
+      : breathing;
     this.model.position.y = bob;
     const lean = this.isMoving ? 0.05 + speedRatio * 0.1 : 0;
     this.model.rotation.x = THREE.MathUtils.lerp(this.model.rotation.x, lean, Math.min(1, dt * 6));
     this.torso.rotation.y = this.isMoving ? Math.sin(walkCycle) * 0.055 : Math.sin(t * 1.2) * 0.02;
-    this.head.rotation.y = this.isMoving ? -Math.sin(walkCycle * 0.5) * 0.04 : Math.sin(t * 0.6) * 0.05;
-    this.head.position.y = 1.46 + (this.isMoving ? Math.abs(Math.sin(walkCycle * 2)) * 0.008 : 0);
+    this.torso.rotation.z = this.isMoving ? Math.sin(walkCycle) * 0.02 : Math.sin(t * 0.7) * 0.012;
+    this.torso.scale.set(1, 1 + (this.isMoving ? 0 : breathing * 0.6), 1);
+
+    // Head: looks where the body is going, and idly glances when standing still.
+    const idleGlance = Math.sin(t * 0.42) * Math.sin(t * 0.17) * 0.22;
+    const headYaw = this.isMoving ? -Math.sin(walkCycle * 0.5) * 0.04 : idleGlance;
+    this.head.rotation.y = THREE.MathUtils.lerp(this.head.rotation.y, headYaw, Math.min(1, dt * 3));
+    this.head.rotation.x = this.isMoving ? -lean * 0.35 : Math.sin(t * 0.5) * 0.02;
+    this.head.position.y = 1.46 + (this.isMoving ? Math.abs(Math.sin(walkCycle * 2)) * 0.008 : breathing * 0.4);
 
     // Cape and hair follow speed + wind
     const windFlutter = Math.sin(t * 2.4) * 0.045 + Math.sin(t * 5.1) * 0.015;
@@ -451,10 +572,30 @@ export class PlayerController {
     this.ponytail.rotation.x = Math.sin(t * 2.1) * 0.09 + speedRatio * 0.22 + windFlutter;
     this.ponytail.rotation.z = Math.sin(t * 1.4) * 0.06;
 
+    // Scarf tails stream back at speed and settle when standing.
+    this.scarfTails.rotation.x = -0.12 - speedRatio * 0.55 + Math.sin(t * 3.2) * 0.05;
+    this.scarfTails.rotation.z = Math.sin(t * 1.6) * 0.06;
+    this.scarfTails.children.forEach((tail, index) => {
+      tail.rotation.x = Math.sin(t * (2.8 + index * 0.6)) * (0.08 + speedRatio * 0.16);
+    });
+
     // Pendant glimmer
     this.pendantCrystal.rotation.y += dt * 1.4;
     this.pendantCrystal.position.y = Math.sin(t * 1.8) * 0.012;
     this.pendant.position.y = 1.2 + Math.sin(t * 1.5) * 0.008;
+
+    // Companion wisp: hovers at the shoulder, orbiting slowly.
+    if (this.companion.visible) {
+      const orbit = Math.sin(t * 0.6) * 0.14;
+      this.companion.position.x = -0.55 - orbit * 0.4;
+      this.companion.position.y = 1.42 + Math.sin(t * 1.6) * 0.05 + speedRatio * 0.06;
+      this.companion.position.z = -0.18 - Math.sin(t * 0.9) * 0.06;
+      this.companionCore.rotation.y += dt * 1.8;
+      this.companionCore.rotation.x += dt * 0.9;
+      this.companionMaterial.emissiveIntensity = 1.3 + Math.sin(t * 2.6) * 0.35;
+      this.companionHalos[0].rotation.z += dt * 0.8;
+      this.companionHalos[1].rotation.y -= dt * 0.55;
+    }
   }
 
   syncShadow() {

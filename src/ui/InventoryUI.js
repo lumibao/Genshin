@@ -9,7 +9,7 @@ export class InventoryUI {
     this.modal = new Modal(game);
   }
 
-  open() {
+  open({ returnToPause = false } = {}) {
     if (this.modal.isOpen) return;
     const entries = this.game.inventory.getEntries();
     const wrap = document.createElement('div');
@@ -44,6 +44,9 @@ export class InventoryUI {
       subtitle: `${summary.chapter} · ${summary.title}`,
       body: wrap,
       actions: [{ label: 'Close', variant: 'ghost' }],
+      onClose: () => {
+        if (returnToPause) this.game.returnToPause?.();
+      },
     });
 
     // Open the first item's detail for a friendly first impression.

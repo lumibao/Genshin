@@ -11,7 +11,7 @@ export class JournalUI {
     this.modal = new Modal(game);
   }
 
-  open() {
+  open({ returnToPause = false } = {}) {
     if (this.modal.isOpen) return;
     const wrap = document.createElement('div');
 
@@ -66,6 +66,9 @@ export class JournalUI {
       subtitle: 'Every journey the wind has carried',
       body: wrap,
       actions: [{ label: 'Close', variant: 'ghost' }],
+      onClose: () => {
+        if (returnToPause) this.game.returnToPause?.();
+      },
     });
   }
 }
