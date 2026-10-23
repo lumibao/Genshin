@@ -7,15 +7,122 @@
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0c1320" />
-    <meta name="description" content="Project Asteria: The Chronicles of Teyvat — an original 3D fantasy adventure." />
+    <meta name="description" content="Project Asteria: The Chronicles of Teyvat — an original 3D fantasy adventure in five chapters, played in your browser." />
+    <!-- Link previews: chat apps, social cards and browser tabs show this
+         artwork before anyone opens the game. The absolute URL is required —
+         scrapers do not resolve relative paths. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Project Asteria" />
+    <meta property="og:title" content="Project Asteria — The Chronicles of Teyvat" />
+    <meta property="og:description" content="An original 3D fantasy adventure in five chapters. Follow the wind, wake the ruins, and open the book at the end of it." />
+    <meta property="og:image" content="https://lumibao.github.io/Genshin/game/og-image.png" />
+    <meta property="og:image:secure_url" content="https://lumibao.github.io/Genshin/game/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="A traveler in a teal cape watching a shooting star above a distant white citadel at dusk." />
+    <meta property="og:url" content="https://lumibao.github.io/Genshin/game/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Project Asteria — The Chronicles of Teyvat" />
+    <meta name="twitter:description" content="An original 3D fantasy adventure in five chapters. Follow the wind, wake the ruins, and open the book at the end of it." />
+    <meta name="twitter:image" content="https://lumibao.github.io/Genshin/game/og-image.png" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <title>Project Asteria — The Chronicles of Teyvat</title>
-    <script type="module" crossorigin src="./assets/index-t_KP1yyD.js"></script>
+    <!--
+      Critical splash styles, inline on purpose: the very first paint after a
+      link is opened must already be the artwork, before any stylesheet has
+      finished downloading — and the same markup is what a source-served page
+      shows while it redirects to the built game.
+    -->
+    <style>
+      #screen-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: #05070c;
+        color: #f3ecdc;
+        font-family: Georgia, 'Times New Roman', serif;
+      }
+      #screen-splash.hidden { display: none; }
+      #screen-splash .splash-art {
+        position: absolute;
+        inset: -2%;
+        background-image: url('./assets/splash-art-Cxm_r5TP.jpg');
+        background-size: cover;
+        background-position: right center;
+        background-repeat: no-repeat;
+      }
+      #screen-splash .splash-scrim {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(100deg, rgba(4, 7, 12, 0.92) 0%, rgba(4, 7, 12, 0.74) 34%, rgba(4, 7, 12, 0.28) 62%, rgba(4, 7, 12, 0.12) 100%),
+          linear-gradient(0deg, rgba(4, 7, 12, 0.86) 0%, rgba(4, 7, 12, 0) 34%);
+      }
+      #screen-splash .splash-inner {
+        position: relative;
+        z-index: 2;
+        width: min(1120px, 92vw);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 28px;
+        padding: 32px 28px 64px;
+      }
+      #screen-splash .splash-brand { display: grid; gap: 8px; max-width: 34rem; }
+      #screen-splash .splash-mark { width: 38px; color: #d9b978; }
+      #screen-splash .splash-mark svg { width: 100%; height: auto; }
+      #screen-splash .splash-eyebrow {
+        margin: 0; font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase;
+        color: rgba(217, 185, 120, 0.92);
+      }
+      #screen-splash .splash-title {
+        margin: 0; font-weight: 500; font-size: clamp(2.2rem, 7vw, 4.4rem);
+        line-height: 1.04; letter-spacing: 0.06em; color: #f7f1e2;
+      }
+      #screen-splash .splash-title span { display: block; letter-spacing: 0.16em; color: #f7e2ae; }
+      #screen-splash .splash-subtitle {
+        margin: 0; font-size: clamp(1rem, 2.4vw, 1.4rem); letter-spacing: 0.12em;
+        color: rgba(240, 234, 220, 0.88);
+      }
+      #screen-splash .splash-rule { display: flex; align-items: center; gap: 12px; width: 22rem; max-width: 62vw; color: rgba(217, 185, 120, 0.8); }
+      #screen-splash .splash-rule span { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(217, 185, 120, 0.7), transparent); }
+      #screen-splash .splash-rule i { font-style: normal; font-size: 0.7rem; }
+      #screen-splash .splash-reason { margin: 0; max-width: 30rem; font-size: 1rem; line-height: 1.6; color: rgba(226, 220, 206, 0.86); }
+      #screen-splash .splash-actions { display: grid; gap: 10px; }
+      #screen-splash .splash-enter {
+        min-height: 54px; padding: 0 32px; border-radius: 999px; cursor: pointer;
+        font: inherit; font-size: 0.82rem; letter-spacing: 0.2em; text-transform: uppercase;
+        border: 1px solid rgba(242, 215, 155, 0.75);
+        background: linear-gradient(180deg, rgba(232, 201, 138, 0.92), rgba(196, 160, 96, 0.92));
+        color: #1a1408;
+      }
+      #screen-splash.is-waiting .splash-enter { cursor: progress; color: rgba(240, 234, 220, 0.7); background: rgba(24, 32, 46, 0.7); border-color: rgba(232, 201, 138, 0.3); }
+      #screen-splash .splash-hint { margin: 0; font-size: 0.66rem; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(232, 222, 200, 0.5); }
+      #screen-splash .splash-foot {
+        position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+        width: min(92vw, 820px); margin: 0; text-align: center;
+        font-size: 0.6rem; letter-spacing: 0.16em; color: rgba(206, 199, 184, 0.42);
+      }
+      @media (max-width: 820px) and (orientation: portrait) {
+        #screen-splash .splash-inner { align-items: center; text-align: center; padding-bottom: 72px; }
+        #screen-splash .splash-brand, #screen-splash .splash-actions { justify-items: center; }
+        #screen-splash .splash-scrim {
+          background: linear-gradient(180deg, rgba(4, 7, 12, 0.5) 0%, rgba(4, 7, 12, 0.18) 30%, rgba(4, 7, 12, 0.88) 78%, rgba(4, 7, 12, 0.95) 100%);
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="./assets/index-B4HPBLiu.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/three-K14ph-lY.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-PdPhAe4H.css">
+    <link rel="stylesheet" crossorigin href="./assets/index-W_a6dh-I.css">
   </head>
   <body>
     <noscript>
@@ -25,6 +132,36 @@
       </div>
     </noscript>
     <div id="app">
+      <!-- ============ SPLASH / LINK LANDING ============ -->
+      <div id="screen-splash" class="screen splash is-waiting" role="dialog" aria-modal="true" aria-labelledby="splash-title">
+        <div class="splash-art" aria-hidden="true"></div>
+        <div class="splash-scrim" aria-hidden="true"></div>
+        <div class="splash-inner">
+          <div class="splash-brand">
+            <div class="brand-mark splash-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" role="presentation">
+                <path d="M32 4 38 24 58 32 38 40 32 60 26 40 6 32 26 24Z" fill="none" stroke="currentColor" stroke-width="1.2" />
+                <circle cx="32" cy="32" r="7" fill="none" stroke="currentColor" stroke-width="1" />
+                <circle cx="32" cy="32" r="2" fill="currentColor" />
+              </svg>
+            </div>
+            <p class="splash-eyebrow">An Original Fantasy Adventure</p>
+            <h1 class="splash-title" id="splash-title">PROJECT <span>ASTERIA</span></h1>
+            <p class="splash-subtitle">The Chronicles of Teyvat</p>
+            <div class="splash-rule" aria-hidden="true"><span></span><i>✦</i><span></span></div>
+            <p class="splash-reason">Where the wind remembers every name it has carried.</p>
+          </div>
+          <div class="splash-actions">
+            <button id="btn-enter" class="btn btn-primary splash-enter" type="button">
+              <span class="btn-shine" aria-hidden="true"></span>
+              <span class="btn-label">The wind is rising…</span>
+            </button>
+            <p class="splash-hint">Opening the chronicle</p>
+          </div>
+        </div>
+        <p class="splash-foot">Best with sound on · landscape · an original work, unaffiliated with HoYoverse</p>
+      </div>
+
       <!-- 3D canvas is inserted here by Renderer.js -->
       <div id="scene-root" aria-hidden="true"></div>
       <div id="vignette" aria-hidden="true"></div>
