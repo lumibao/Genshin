@@ -1,0 +1,326 @@
+/* ============================================================
+   THE SPLASH — what a link looks like once it opens
+   Full-bleed artwork, the title, and one door. Visible while the
+   engine is still loading, and left standing if it never does.
+   ============================================================ */
+
+#screen-splash {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-fatal) + 10);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #05070c;
+  color: var(--ink, #f3ecdc);
+  transition: opacity 0.7s var(--ease-out), visibility 0.7s;
+}
+
+#screen-splash.hidden {
+  display: none;
+}
+
+#screen-splash.is-leaving {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* While handing off to a panel (the title screen), stay invisible but keep the
+ * layout stable so nothing jumps underneath. */
+#screen-splash.is-handing-off {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ------------------------------ Artwork ------------------------------ */
+
+.splash-art {
+  position: absolute;
+  inset: -2%;
+  background-image: url('../assets/splash-art.jpg');
+  background-size: cover;
+  background-position: right center;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+  animation: splashDrift 46s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Stars over the painted sky, so the artwork keeps breathing. */
+.splash-art::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.4px 1.4px at 18% 14%, rgba(255, 252, 240, 0.9), transparent 60%),
+    radial-gradient(1.1px 1.1px at 34% 26%, rgba(226, 240, 255, 0.7), transparent 60%),
+    radial-gradient(1.7px 1.7px at 52% 10%, rgba(255, 250, 235, 0.75), transparent 60%),
+    radial-gradient(1.2px 1.2px at 68% 22%, rgba(232, 240, 255, 0.6), transparent 60%),
+    radial-gradient(1.5px 1.5px at 82% 12%, rgba(255, 250, 235, 0.7), transparent 60%);
+  animation: splashTwinkle 7s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.splash-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(100deg, rgba(4, 7, 12, 0.92) 0%, rgba(4, 7, 12, 0.74) 34%, rgba(4, 7, 12, 0.28) 62%, rgba(4, 7, 12, 0.12) 100%),
+    linear-gradient(0deg, rgba(4, 7, 12, 0.86) 0%, rgba(4, 7, 12, 0) 34%),
+    radial-gradient(ellipse at 62% 46%, transparent 34%, rgba(3, 5, 9, 0.55) 100%);
+  pointer-events: none;
+}
+
+/* ------------------------------ Content ------------------------------ */
+
+.splash-inner {
+  position: relative;
+  z-index: 2;
+  width: min(1120px, 92vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(22px, 4vh, 44px);
+  padding:
+    calc(24px + var(--safe-top))
+    calc(24px + var(--safe-right))
+    calc(56px + var(--safe-bottom))
+    calc(28px + var(--safe-left));
+}
+
+.splash-brand {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  max-width: 36rem;
+  animation: splashRise 1.3s var(--ease-out) both;
+}
+
+.splash-mark {
+  width: clamp(30px, 5vh, 42px);
+  color: var(--gold, #d9b978);
+  filter: drop-shadow(0 0 16px rgba(220, 191, 133, 0.55));
+  margin-bottom: 4px;
+}
+
+.splash-eyebrow {
+  margin: 0;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: clamp(9px, 1.1vh, 12px);
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(217, 185, 120, 0.92);
+}
+
+.splash-title {
+  margin: 0;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-weight: 500;
+  font-size: clamp(2.2rem, 7vw, 4.4rem);
+  line-height: 1.02;
+  letter-spacing: 0.06em;
+  color: #f7f1e2;
+  text-shadow: 0 6px 42px rgba(0, 0, 0, 0.65);
+}
+
+.splash-title span {
+  display: block;
+  letter-spacing: 0.16em;
+  color: #f7e2ae;
+}
+
+.splash-subtitle {
+  margin: 2px 0 0;
+  font-family: var(--font-body, 'Cormorant Garamond', serif);
+  font-size: clamp(1rem, 2.4vw, 1.4rem);
+  letter-spacing: 0.12em;
+  color: rgba(240, 234, 220, 0.88);
+}
+
+.splash-rule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(22rem, 62vw);
+  margin-top: 6px;
+  color: rgba(217, 185, 120, 0.8);
+}
+
+.splash-rule span {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(217, 185, 120, 0.7), transparent);
+}
+
+.splash-rule i {
+  font-style: normal;
+  font-size: 0.7rem;
+}
+
+.splash-reason {
+  margin: 0;
+  max-width: 30rem;
+  font-size: clamp(0.86rem, 1.6vw, 1rem);
+  line-height: 1.6;
+  color: rgba(226, 220, 206, 0.86);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7);
+}
+
+/* ------------------------------ Actions ------------------------------ */
+
+.splash-actions {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  animation: splashRise 1.3s var(--ease-out) 0.35s both;
+}
+
+.splash-enter {
+  min-height: 54px;
+  padding: 0 34px;
+  font-size: 0.82rem;
+  letter-spacing: 0.22em;
+}
+
+.splash-hint {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(232, 222, 200, 0.5);
+  animation: splashBreathe 3.4s ease-in-out infinite;
+}
+
+/* While the engine builds, the door is honest about it. */
+#screen-splash.is-waiting .splash-enter {
+  background: linear-gradient(180deg, rgba(60, 72, 92, 0.55), rgba(24, 32, 46, 0.7));
+  border-color: rgba(232, 201, 138, 0.28);
+  color: rgba(240, 234, 220, 0.66);
+  cursor: progress;
+}
+
+#screen-splash.is-waiting .splash-enter .btn-shine {
+  display: none;
+}
+
+#screen-splash.is-waiting-nudge .splash-enter {
+  animation: splashNudge 0.5s ease;
+}
+
+@keyframes splashNudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  60% { transform: translateX(4px); }
+}
+
+.splash-foot {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: calc(16px + var(--safe-bottom));
+  transform: translateX(-50%);
+  width: min(92vw, 820px);
+  margin: 0;
+  text-align: center;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  color: rgba(206, 199, 184, 0.42);
+}
+
+/* ------------------------------ Motion ------------------------------ */
+
+@keyframes splashDrift {
+  from { transform: scale(1.02) translate3d(0, 0, 0); }
+  to { transform: scale(1.09) translate3d(-1.4%, -1%, 0); }
+}
+
+@keyframes splashTwinkle {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.95; }
+}
+
+@keyframes splashRise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes splashBreathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.reduced-motion .splash-art,
+.reduced-motion .splash-art::after,
+.reduced-motion .splash-hint {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-art,
+  .splash-art::after,
+  .splash-hint,
+  .splash-brand,
+  .splash-actions {
+    animation: none;
+  }
+}
+
+/* ------------------------------ Layout ------------------------------ */
+
+/* Portrait phones: centre the lockup and stack the door under it. */
+@media (max-width: 820px) and (orientation: portrait) {
+  .splash-inner {
+    align-items: center;
+    text-align: center;
+    padding-top: calc(18px + var(--safe-top));
+    padding-bottom: calc(72px + var(--safe-bottom));
+    gap: 20px;
+  }
+
+  .splash-brand {
+    justify-items: center;
+  }
+
+  .splash-actions {
+    justify-items: center;
+  }
+
+  .splash-scrim {
+    background:
+      linear-gradient(180deg, rgba(4, 7, 12, 0.5) 0%, rgba(4, 7, 12, 0.18) 30%, rgba(4, 7, 12, 0.86) 78%, rgba(4, 7, 12, 0.95) 100%);
+  }
+
+  .splash-art {
+    background-position: 62% center;
+  }
+
+  .splash-reason {
+    font-size: 0.86rem;
+  }
+}
+
+@media (max-height: 520px) {
+  .splash-inner {
+    gap: 14px;
+    padding-bottom: calc(40px + var(--safe-bottom));
+  }
+
+  .splash-title {
+    font-size: clamp(1.7rem, 6vh, 2.6rem);
+  }
+
+  .splash-reason {
+    display: none;
+  }
+
+  .splash-foot {
+    display: none;
+  }
+
+  .splash-enter {
+    min-height: 46px;
+  }
+}

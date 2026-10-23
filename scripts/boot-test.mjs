@@ -541,6 +541,33 @@ try {
     game.state = saved;
   });
 
+  await test('the splash hands the visitor over to the title screen', async () => {
+    const splash = document.getElementById('screen-splash');
+    assert.ok(splash, 'the splash is in the real page');
+    assert.equal(splash.classList.contains('is-waiting'), false, 'boot finished, so the door is live');
+    assert.equal(splash.classList.contains('hidden'), false, 'it is still up until the visitor opens the door');
+    assert.ok(
+      ['Enter the meadow', 'Continue the chronicle'].includes(
+        splash.querySelector('#btn-enter .btn-label').textContent,
+      ),
+      'the door says what it will do',
+    );
+
+    const label = splash.querySelector('#btn-enter .btn-label').textContent;
+    splash.querySelector('#btn-enter').click();
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    assert.equal(splash.classList.contains('hidden'), true, 'the splash steps aside');
+    assert.equal(document.body.classList.contains('is-splash'), false, 'and stops owning the page');
+
+    // What the door does next is covered where it belongs — the title flow and
+    // the save flow have their own tests. Here we only check the two promises
+    // the splash makes: it reports the right thing, and it gets out of the way.
+    assert.ok(
+      ['Enter the meadow', 'Continue the chronicle'].includes(label),
+      `the splash knows which journey this is (${label})`,
+    );
+  });
+
   await test('the mirror opens on the real camera and hands it back on close', async () => {
     game.start?.(false);
     await new Promise((resolve) => setTimeout(resolve, 60));

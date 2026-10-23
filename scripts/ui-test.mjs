@@ -81,6 +81,7 @@ const { ShopManager } = await import('../src/game/ShopManager.js');
 const { ShopUI } = await import('../src/ui/ShopUI.js');
 const { WishCinematic } = await import('../src/ui/WishCinematic.js');
 const { CharacterViewer } = await import('../src/ui/CharacterViewer.js');
+const { SplashScreen } = await import('../src/ui/SplashScreen.js');
 const { CameraController } = await import('../src/game/CameraController.js');
 const shopData = await import('../src/story/shopData.js');
 const { InputManager } = await import('../src/game/InputManager.js');
@@ -1134,6 +1135,91 @@ await test('pinching on the look area zooms the chase camera', async () => {
   send('pointerup', 11);
   send('pointerup', 12);
   controls.dispose?.();
+});
+
+/* ------------------------------------------------------------------ */
+/* The splash: what a shared link shows before the world            */
+/* ------------------------------------------------------------------ */
+
+await test('a link preview carries the artwork and the title', () => {
+  const meta = (property) =>
+    document.querySelector(`meta[property="${property}"], meta[name="${property}"]`)?.getAttribute('content') || '';
+
+  assert.equal(meta('og:title'), 'Project Asteria — The Chronicles of Teyvat');
+  assert.ok(meta('og:description').length > 40, 'the card says what the game is');
+  assert.match(meta('og:image'), /^https:\/\/lumibao\.github\.io\/Genshin\/game\/og-image\.png$/);
+  assert.equal(meta('og:image:width'), '1200');
+  assert.equal(meta('og:image:height'), '630');
+  assert.equal(meta('twitter:card'), 'summary_large_image');
+  assert.equal(meta('twitter:image'), meta('og:image'), 'both cards use the same picture');
+
+  // The file the card points at must actually ship.
+  const png = readFileSync(new URL('../public/og-image.png', import.meta.url));
+  assert.ok(png.length > 20000, 'the card image exists and is a real picture');
+  assert.equal(png.subarray(1, 4).toString(), 'PNG');
+  assert.ok(readFileSync(new URL('../public/og-image.jpg', import.meta.url)).length > 20000, 'a jpeg copy exists for picky scrapers');
+});
+
+await test('the splash is painted from the artwork, before any script runs', () => {
+  const splash = document.getElementById('screen-splash');
+  assert.ok(splash, 'the splash markup is in the page');
+  assert.equal(splash.classList.contains('hidden'), false, 'it is visible on first paint');
+  assert.ok(splash.classList.contains('is-waiting'), 'and honest that the world is still coming');
+
+  // It sits above every other screen, including the fatal notice's base layer.
+  const inline = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.ok(/#screen-splash\s*{[^}]*z-index:\s*100/s.test(inline), 'critical splash CSS is inline');
+  assert.ok(/url\('\.\/src\/assets\/splash-art\.jpg'\)/.test(inline), 'the critical CSS paints the art itself');
+
+  // The art the splash uses exists, and so does the CSS that finishes it.
+  assert.ok(readFileSync(new URL('../src/assets/splash-art.jpg', import.meta.url)).length > 50000);
+  const css = readFileSync(new URL('../src/styles/splash.css', import.meta.url), 'utf8');
+  assert.ok(/url\('\.\.\/assets\/splash-art\.jpg'\)/.test(css), 'the splash stylesheet uses the same art');
+  assert.ok(/#screen-splash\.is-leaving\s*{[^}]*opacity:\s*0/s.test(css), 'it can fade away');
+
+  // The title and a way in are both there without JavaScript.
+  assert.equal(splash.querySelector('#splash-title').textContent.trim().replace(/\s+/g, ' '), 'PROJECT ASTERIA');
+  assert.ok(splash.querySelector('#btn-enter'), 'the door exists in markup');
+});
+
+await test('the splash waits for the world, then opens it', async () => {
+  const splash = document.getElementById('screen-splash');
+  splash.classList.remove('hidden', 'is-leaving', 'is-handing-off');
+  splash.classList.add('is-waiting');
+
+  const actions = [];
+  const game = makeGame();
+  const screen = new SplashScreen(game);
+  screen.configure({ reason: 'Where the wind remembers.', gateLabel: 'Enter the meadow', action: () => actions.push('enter') });
+
+  // A tap while the engine is still building must not drop the visitor into
+  // a half-built world.
+  screen.dismiss({ byUser: true });
+  assert.equal(splash.classList.contains('hidden'), false, 'the splash stays while waiting');
+  assert.equal(actions.length, 0, 'and the door does nothing yet');
+  assert.ok(splash.classList.contains('is-waiting-nudge'), 'it nudges instead of failing silently');
+
+  screen.setReady();
+  assert.equal(splash.classList.contains('is-waiting'), false);
+  assert.equal(splash.querySelector('#btn-enter .btn-label').textContent, 'Enter the meadow');
+
+  screen.dismiss({ byUser: true });
+  await sleep(500);
+  assert.equal(splash.classList.contains('hidden'), true, 'the splash steps aside');
+  assert.deepEqual(actions, ['enter'], 'and the door does what it promised');
+
+  // Restore for the tests that follow.
+  splash.classList.add('hidden');
+});
+
+await test('a failed boot never hides behind the splash', async () => {
+  const splash = document.getElementById('screen-splash');
+  splash.classList.remove('hidden');
+  const game = makeGame();
+  const screen = new SplashScreen(game);
+  screen.setReady();
+  screen.abort();
+  assert.equal(splash.classList.contains('hidden'), true, 'the splash gets out of the way of the error');
 });
 
 console.log(results.join('\n'));

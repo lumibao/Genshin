@@ -26,6 +26,7 @@ import { DialogueUI } from '../ui/DialogueUI.js';
 import { InventoryUI } from '../ui/InventoryUI.js';
 import { ShopUI } from '../ui/ShopUI.js';
 import { CharacterViewer } from '../ui/CharacterViewer.js';
+import { SplashScreen } from '../ui/SplashScreen.js';
 import { JournalUI } from '../ui/JournalUI.js';
 import { SettingsUI, PauseMenu } from '../ui/SettingsUI.js';
 import { BookUI } from '../ui/BookUI.js';
@@ -75,6 +76,10 @@ export class Game {
   /* ================================================================ */
 
   async boot() {
+    // The splash is already on screen (it is plain markup). Keep the loading
+    // line tucked behind it rather than stacking two full-screen cards.
+    document.body.classList.add('is-splash');
+
     if (!this._rendererFactory && !isWebGLAvailable()) {
       this.showFatal(
         'The wind could not reach this world',
@@ -133,6 +138,8 @@ export class Game {
     this.modal = new Modal(this);
     this.inspecting = false;
     this._viewerReturnToPause = false;
+    // The splash exists before boot: it is what a link shows when it opens.
+    this.splash = new SplashScreen(this);
 
     document.body.classList.toggle('reduced-motion', this.settings.reducedMotion);
 
@@ -151,6 +158,9 @@ export class Game {
       if (world?.getTitleCamera) this.cameraController.startOrbit(world.getTitleCamera());
       this.setLoading(false);
       this.showTitle();
+      // The world is ready: the splash's door can finally do its job.
+      this._announceSplash();
+      this.splash?.setReady();
       await this.cinematics.fadeIn(1200);
     } catch (err) {
       console.error(err);
@@ -269,6 +279,40 @@ export class Game {
       }
     });
 
+  }
+
+  /**
+   * The splash's one line of copy and its door.
+   *
+   * A first-time visitor gets "Enter the meadow" and lands on the title screen.
+   * Someone with a saved journey is offered a way straight back into it, which
+   * is the whole reason they clicked the link again.
+   */
+  _announceSplash() {
+    if (!this.splash?.isOpen) return;
+    const hasSave = this.saveManager.hasState() && this.state.started;
+    const chapter = this.quests?.summary?.();
+    if (hasSave && chapter) {
+      this.splash.configure({
+        reason: `${chapter.chapter} · ${chapter.title} — your journey is saved, ${chapter.done} of ${chapter.total} objectives done.`,
+        gateLabel: 'Continue the chronicle',
+        action: () => {
+          this.audio.unlock();
+          this.continueGame();
+        },
+      });
+      return;
+    }
+    this.splash.configure({
+      reason: 'Where the wind remembers every name it has carried.',
+      gateLabel: 'Enter the meadow',
+      action: () => {
+        this.audio.unlock();
+        // The title screen is already behind the splash; it only needs the
+        // visitor's eyes once the painting fades.
+        this.showTitle();
+      },
+    });
   }
 
   /* ================================================================ */
@@ -845,6 +889,9 @@ export class Game {
 
   showFatal(title, message, hint) {
     this._fatal = true;
+    // A failed boot must never leave someone staring at a pretty painting and
+    // wondering what happened.
+    this.splash?.abort();
     const screen = document.getElementById('screen-fatal');
     if (!screen) return;
     document.getElementById('fatal-title').textContent = title;
