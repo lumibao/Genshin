@@ -125,6 +125,7 @@
 
 .touch-buttons {
   position: absolute;
+  z-index: 4;
   right: calc(20px + var(--safe-right));
   bottom: calc(20px + var(--safe-bottom));
   display: flex;
@@ -171,11 +172,12 @@
 }
 
 .touch-jump {
-  width: 52px;
-  height: 52px;
-  font-size: 16px;
+  width: 58px;
+  height: 58px;
+  font-size: 18px;
   margin-bottom: 6px;
-  opacity: 0.9;
+  opacity: 0.94;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ------------------------------ Mobile HUD layout ------------------------------ */
@@ -294,11 +296,7 @@
   }
 }
 
-/* Hover-capable devices do not need the on-screen joystick. */
-@media (hover: hover) and (pointer: fine) {
-  .is-touch #joystick,
-  .is-touch .touch-buttons,
-  .is-touch #touch-look {
-    display: none !important;
-  }
-}
+/* The on-screen controls are only ever shown by MobileControls.enable() on a
+ * device it detected as touch. Do not re-hide them from CSS based on
+ * `hover`/`pointer` media features: several Android browsers report
+ * `hover: hover` and that used to blank the whole control layer. */

@@ -80,6 +80,10 @@ const { createNewState } = await import('../src/game/SaveManager.js');
 const { ShopManager } = await import('../src/game/ShopManager.js');
 const { ShopUI } = await import('../src/ui/ShopUI.js');
 const shopData = await import('../src/story/shopData.js');
+const { InputManager } = await import('../src/game/InputManager.js');
+const { MobileControls } = await import('../src/game/MobileControls.js');
+const { PlayerController } = await import('../src/game/PlayerController.js');
+const THREE = await import('three');
 
 let passed = 0;
 let failed = 0;
@@ -796,6 +800,124 @@ await test('on a phone the HUD buttons sit above the touch layer and are thumb-s
   // The ledger is usable on a phone too.
   assert.ok(/\.is-touch \.shop-buy[^{]*{[^}]*min-height:\s*44px/s.test(shopCss), 'shop buttons are 44px tall on touch');
   assert.ok(/\.is-touch \.shop-tab\s*{[^}]*padding:\s*12px/s.test(shopCss), 'shop tabs are comfortable to tap');
+});
+
+await test('the touch controls are a sibling of the HUD, not trapped inside it', () => {
+  const hud = document.getElementById('hud');
+  const controls = document.getElementById('mobile-controls');
+  assert.ok(controls, 'the touch control layer exists');
+  assert.equal(hud.contains(controls), false, 'the HUD must not clip or hide the touch controls');
+
+  const mainCss = readFileSync(new URL('../src/styles/main.css', import.meta.url), 'utf8');
+  const mobileCss = readFileSync(new URL('../src/styles/mobile.css', import.meta.url), 'utf8');
+  const hudZ = Number(mainCss.match(/--z-hud:\s*(\d+)/)?.[1]);
+  const controlsZ = Number(mobileCss.match(/#mobile-controls\s*{[^}]*z-index:\s*(\d+)/s)?.[1]);
+  assert.ok(hudZ > controlsZ, `the HUD (z ${hudZ}) must sit above the touch layer (z ${controlsZ})`);
+  assert.ok(/\.touch-jump\s*{[^}]*width:\s*5[6-9]px/s.test(mobileCss), 'the jump button is thumb sized');
+  assert.ok(
+    /#touch-look\s*{[^}]*top:\s*\d+px/s.test(mobileCss),
+    'the look area starts below the top HUD bar so it cannot blanket the HUD',
+  );
+});
+
+await test('tapping jump on a phone actually lifts the traveler', async () => {
+  const { window: win } = dom;
+  const canvas = document.createElement('canvas');
+  const input = new InputManager(canvas);
+  const mobile = new MobileControls(input, document.getElementById('mobile-controls'));
+  mobile.enable(true);
+
+  const game = {
+    state: { flags: {}, items: {} },
+    renderer: { tier: 'low' },
+    hud: { toast() {} },
+    audio: { play() {} },
+    input,
+    collision: { resolve: () => false },
+    worlds: { getHeightAt: () => 0, getSurface: () => 'stone', spawnFootstepDust() {} },
+    cameraController: {
+      getForward: () => ({ x: 0, z: -1 }),
+      getRight: () => ({ x: 1, z: 0 }),
+      snapToPlayer() {},
+    },
+    isMovementBlocked: () => false,
+    bus: { emit() {} },
+    quests: { setFlag() {} },
+    player: { position: new THREE.Vector3() },
+  };
+  const player = new PlayerController(game);
+  game.player = player;
+  player.setVisible(true);
+  player.teleport(0, 0, 0);
+  for (let i = 0; i < 5; i++) player.update(1 / 60, i / 60);
+  const start = player.position.y;
+
+  const tap = new win.Event('pointerdown', { bubbles: true, cancelable: true });
+  tap.pointerId = 1;
+  tap.pointerType = 'touch';
+  document.getElementById('btn-jump').dispatchEvent(tap);
+  assert.ok(input.pressed.has('jump'), 'the tap reaches the input manager');
+
+  let apex = start;
+  for (let i = 0; i < 40; i++) {
+    player.update(1 / 60, i / 60);
+    apex = Math.max(apex, player.position.y);
+  }
+  assert.ok(apex - start > 0.8, `jump only reached ${(apex - start).toFixed(2)} above the ground`);
+  assert.ok(player.position.y <= start + 0.01, 'the traveler lands again');
+
+  // Interact shares the same wiring.
+  const tapInteract = new win.Event('pointerdown', { bubbles: true, cancelable: true });
+  tapInteract.pointerId = 2;
+  tapInteract.pointerType = 'touch';
+  document.getElementById('btn-interact').dispatchEvent(tapInteract);
+  assert.ok(input.pressed.has('interact'), 'the interact button is tappable');
+  mobile.enable(false);
+});
+
+await test('a jump tapped just before landing is not swallowed', async () => {
+  const game = makeGame({ isMovementBlocked: () => false });
+  game.collision = { resolve: () => false };
+  game.worlds = { getHeightAt: () => 0, getSurface: () => 'stone', spawnFootstepDust() {} };
+  game.cameraController = {
+    ...game.cameraController,
+    getForward: () => ({ x: 0, z: -1 }),
+    getRight: () => ({ x: 1, z: 0 }),
+  };
+  const presses = [];
+  game.input = {
+    getMoveVector: () => ({ x: 0, y: 0 }),
+    isDown: () => false,
+    consumePress: (action) => {
+      if (action !== 'jump' || presses.length === 0) return false;
+      presses.shift();
+      return true;
+    },
+    endFrame: () => {},
+  };
+  const player = new PlayerController(game);
+  game.player = player;
+  player.setVisible(true);
+  player.teleport(0, 0, 0);
+  for (let i = 0; i < 5; i++) player.update(1 / 60, i / 60);
+
+  presses.push('jump');
+  player.update(1 / 60, 0);
+  // Fall until just above the ground, then tap: the buffer must hold the tap
+  // for the last few centimetres instead of dropping it.
+  let guard = 0;
+  while (!(player.velocity.y < 0 && player.position.y < 0.35) && guard++ < 120) {
+    player.update(1 / 60, 0);
+  }
+  assert.ok(!player.grounded, 'still in the air when the tap arrives');
+
+  presses.push('jump');
+  let landedJumped = false;
+  for (let i = 0; i < 90; i++) {
+    player.update(1 / 60, 0);
+    if (player.velocity.y > 3) landedJumped = true;
+  }
+  assert.ok(landedJumped, 'the buffered tap fires on landing instead of being dropped');
 });
 
 console.log(results.join('\n'));

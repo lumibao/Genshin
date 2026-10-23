@@ -937,7 +937,20 @@ export class HiddenLibrary extends BaseWorld {
     this._gateOpen = false;
   }
 
-  heightAt() {
+  /**
+   * The central dais is a real step, not a wall.
+   *
+   * It used to have a 4.5-radius collider, which meant a player could get no
+   * closer than 4.92 to the pedestal — outside both the 4.2 "approach" trigger
+   * and the 3.2 book interaction radius. Chapter V therefore could not be
+   * finished on foot at all. The dais is 0.32 high, so the terrain sampler
+   * lifts the player onto it instead.
+   */
+  heightAt(x = 0, z = 0) {
+    const DAIS_TOP = 0.32;
+    const dist = Math.hypot(x, z + 6);
+    if (dist <= 4.4) return DAIS_TOP;
+    if (dist < 5.4) return DAIS_TOP * (1 - (dist - 4.4));
     return 0;
   }
 
@@ -1059,11 +1072,12 @@ export class HiddenLibrary extends BaseWorld {
     dais.position.set(0, 0.16, -6);
     dais.receiveShadow = true;
     this.group.add(dais);
-    this.addColliderCircle(0, -6, 4.5);
+    // No collider: the dais is walkable terrain (see heightAt). Only the
+    // pedestal itself blocks.
+    this.addColliderCircle(0, -6, 1.1);
 
     const pedestal = createPedestal({ height: 1.3, radius: 1.0, color: '#8f8577' });
     this.add(pedestal, { x: 0, z: -6, y: 0.32 });
-    this.addColliderCircle(0, -6, 1.1);
 
     // Glow beneath the book.
     const glowDisc = new THREE.Mesh(
@@ -1154,7 +1168,7 @@ export class HiddenLibrary extends BaseWorld {
       if (this._pedestalReached) return;
       const player = this.game.player;
       if (!player) return;
-      if (Math.hypot(player.position.x - 0, player.position.z + 6) < 4.2) {
+      if (Math.hypot(player.position.x - 0, player.position.z + 6) < 5.2) {
         this._pedestalReached = true;
         this.game.quests.setFlag('L5_pedestalReached', true);
         this.game.hud.toast({

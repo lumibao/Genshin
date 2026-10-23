@@ -20,6 +20,8 @@ const MAX_STAMINA = 100;
 const SPRINT_DRAIN = 17;
 const STAMINA_REGEN = 24;
 const JUMP_COST = 9;
+const JUMP_BUFFER_TIME = 0.18;
+const COYOTE_TIME = 0.12;
 
 export class PlayerController {
   constructor(game) {
@@ -33,6 +35,11 @@ export class PlayerController {
     this.grounded = true;
     this.stamina = MAX_STAMINA;
     this.staminaLock = 0;
+    // Jump forgiveness: a tap is remembered briefly so it still fires when it
+    // lands a frame or two early, and the ground is remembered briefly so
+    // stepping off a ledge does not eat the jump.
+    this.jumpBuffer = 0;
+    this.coyote = 0;
     this.speed = 0;
     this.isSprinting = false;
     this.isMoving = false;
@@ -68,25 +75,42 @@ export class PlayerController {
     const toon = (color, options = {}) => new THREE.MeshToonMaterial({ color, gradientMap: gradient, ...options });
     const flat = (color, options = {}) => new THREE.MeshBasicMaterial({ color, ...options });
 
-    const skin = toon('#f7d9c2');
-    const skinShade = toon('#e7bda6');
+    const skin = toon('#f4cfb6');
+    const skinShade = toon('#dda78c');
     const cloth = toon('#f8f3e6');
     const clothShade = toon('#e4d9c4');
     const accent = toon('#2f6d78');
     const accentDeep = toon('#1d4854');
     const gold = new THREE.MeshStandardMaterial({ color: '#e3c789', roughness: 0.32, metalness: 0.9 });
-    const hairMat = toon('#eae0c6');
-    const hairShade = toon('#d7c8a6');
+    const hairMat = toon('#e6d6b2');
+    const hairShade = toon('#c9b48b');
     const bootMat = toon('#4b3a2f');
-    const eyeMat = flat('#3f7d96');
+    const eyeMat = flat('#5797b0');
     const eyeDark = flat('#20323c');
     const eyeWhite = flat('#fdfbf6');
     const lashMat = flat('#2a2028');
-    const blushMat = flat('#e0948c', { transparent: true, opacity: 0.24 });
-    const mouthMat = flat('#a9645f');
+    const blushMat = flat('#dd8a82', { transparent: true, opacity: 0.32 });
+    const mouthMat = flat('#a85d58');
     this.materials = {
       skin, skinShade, cloth, clothShade, accent, accentDeep, gold,
       hairMat, hairShade, bootMat, eyeMat, eyeDark, eyeWhite, lashMat, blushMat, mouthMat,
+    };
+
+    // Double-sided garment layers need their own material instance; keep them
+    // listed so `applyLooks()` can repaint them along with `materials.accent`.
+    this._accentClones = [];
+    this._clothClones = [];
+    const dyedAccent = (mesh) => {
+      mesh.material = accent.clone();
+      mesh.material.side = THREE.DoubleSide;
+      this._accentClones.push(mesh.material);
+      return mesh;
+    };
+    const dyedCloth = (mesh) => {
+      mesh.material = cloth.clone();
+      mesh.material.side = THREE.DoubleSide;
+      this._clothClones.push(mesh.material);
+      return mesh;
     };
 
     const root = new THREE.Group();
@@ -123,7 +147,20 @@ export class PlayerController {
       toe.position.set(0, -0.638, 0.115);
       toe.scale.set(1, 0.7, 1);
 
-      leg.add(thigh, thighTrim, shin, knee, cuff, foot, toe);
+      // Two buckled straps down the boot shaft and a bright sole edge.
+      const straps = new THREE.Group();
+      for (let i = 0; i < 2; i++) {
+        const strap = new THREE.Mesh(new THREE.TorusGeometry(0.055 - i * 0.004, 0.006, 4, 12), accentDeep);
+        strap.rotation.x = Math.PI / 2;
+        strap.position.y = -0.345 - i * 0.075;
+        const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.017, 0.013, 0.008), gold);
+        buckle.position.set(0, strap.position.y, 0.052);
+        straps.add(strap, buckle);
+      }
+      const sole = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.012, 0.178), gold);
+      sole.position.set(0, -0.663, 0.035);
+
+      leg.add(thigh, thighTrim, shin, knee, cuff, foot, toe, straps, sole);
       this._outline(thigh, 1.09);
       this._outline(shin, 1.1);
       root.add(leg);
@@ -156,24 +193,31 @@ export class PlayerController {
     }
 
     // Flared skirt with a gold hem.
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.124, 0.255, 0.34, 18, 1, true), accent);
-    skirt.material = accent.clone();
-    skirt.material.side = THREE.DoubleSide;
+    const skirt = dyedAccent(new THREE.Mesh(new THREE.CylinderGeometry(0.124, 0.255, 0.34, 18, 1, true), accent));
     skirt.position.y = -0.03;
     const skirtHem = new THREE.Mesh(new THREE.TorusGeometry(0.252, 0.01, 5, 24), gold);
     skirtHem.rotation.x = Math.PI / 2;
     skirtHem.position.y = -0.2;
 
     // A lighter overskirt layer, slit at the front, for depth.
-    const overskirt = new THREE.Mesh(
+    const overskirt = dyedCloth(new THREE.Mesh(
       new THREE.CylinderGeometry(0.126, 0.172, 0.09, 18, 1, true, Math.PI * 0.38, Math.PI * 1.24),
       cloth,
-    );
-    overskirt.material = cloth.clone();
-    overskirt.material.side = THREE.DoubleSide;
+    ));
     overskirt.position.y = 0.145;
 
     // Sash and its two hanging ends.
+    // Teal corset over the cream bodice: without it the whole torso reads as
+    // one white shape from the chase camera.
+    const corset = dyedAccent(new THREE.Mesh(new THREE.CylinderGeometry(0.113, 0.132, 0.19, 16, 1, true), accent));
+    corset.position.y = 0.275;
+    const corsetTop = new THREE.Mesh(new THREE.TorusGeometry(0.114, 0.0075, 4, 18), gold);
+    corsetTop.rotation.x = Math.PI / 2;
+    corsetTop.position.y = 0.37;
+    const corsetBottom = new THREE.Mesh(new THREE.TorusGeometry(0.132, 0.0075, 4, 20), gold);
+    corsetBottom.rotation.x = Math.PI / 2;
+    corsetBottom.position.y = 0.181;
+
     const sash = new THREE.Mesh(new THREE.TorusGeometry(0.122, 0.017, 6, 16), accentDeep);
     sash.rotation.x = Math.PI / 2;
     sash.position.y = 0.19;
@@ -198,9 +242,7 @@ export class PlayerController {
     ribbon.rotation.z = Math.PI / 4;
 
     // Short mantle over the shoulders.
-    const mantle = new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.176, 0.15, 18, 1, true), cloth);
-    mantle.material = cloth.clone();
-    mantle.material.side = THREE.DoubleSide;
+    const mantle = dyedCloth(new THREE.Mesh(new THREE.CylinderGeometry(0.108, 0.162, 0.135, 18, 1, true), clothShade));
     mantle.position.y = 0.475;
     const mantleTrim = new THREE.Mesh(new THREE.TorusGeometry(0.174, 0.009, 5, 22), gold);
     mantleTrim.rotation.x = Math.PI / 2;
@@ -209,8 +251,49 @@ export class PlayerController {
     const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.13, 10), skin);
     neck.position.y = 0.6;
 
-    this.torso.add(hips, bodice, chestHighlight, panel, skirt, skirtHem, overskirt, sash, sashKnot, this.sashTails, collar, ribbon, mantle, mantleTrim, neck);
-    for (const piece of [bodice, hips, skirt, mantle, skirtHem]) this._outline(piece, 1.045);
+    /* ---- Detail pass: pauldron, clasp, lacing, belt buckle and pleats ---- */
+
+    const trims = new THREE.Group();
+
+    // A single shoulder pauldron with a gold rim, the asymmetric Genshin touch.
+    const pauldron = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.52),
+      clothShade,
+    );
+    pauldron.position.set(-0.158, 0.492, 0);
+    pauldron.rotation.z = 0.3;
+    pauldron.scale.set(1.05, 0.7, 1.02);
+    const pauldronRim = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.0075, 4, 18), gold);
+    pauldronRim.position.set(-0.158, 0.47, 0);
+    pauldronRim.rotation.set(Math.PI / 2, 0, 0.3);
+    pauldronRim.scale.set(1.05, 1.02, 1);
+
+    // Cape clasp: a gem set in gold at the throat.
+    const throatClasp = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.007, 4, 12), gold);
+    throatClasp.position.set(0, 0.5, 0.088);
+    const throatGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.017, 0), this.charmMaterial || eyeMat);
+    throatGem.position.set(0, 0.5, 0.098);
+    throatGem.scale.set(1, 1.25, 0.6);
+
+    // Corset lacing across the front panel.
+    for (let i = 0; i < 3; i++) {
+      const lace = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.007, 0.006), gold);
+      lace.position.set(0, 0.44 - i * 0.05, 0.126);
+      lace.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.24;
+      trims.add(lace);
+    }
+
+    // Belt buckle over the sash knot.
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.03, 0.012), gold);
+    buckle.position.set(0, 0.19, 0.118);
+    const buckleGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.011, 0), accentDeep);
+    buckleGem.position.set(0, 0.19, 0.128);
+
+    trims.add(pauldron, pauldronRim, throatClasp, throatGem, buckle, buckleGem);
+    this._outline(pauldron, 1.08);
+
+    this.torso.add(hips, bodice, chestHighlight, panel, skirt, skirtHem, overskirt, corset, corsetTop, corsetBottom, sash, sashKnot, this.sashTails, collar, ribbon, mantle, mantleTrim, neck, trims);
+    for (const piece of [bodice, hips, skirt, mantle, skirtHem, corset]) this._outline(piece, 1.04);
 
     /* ------------------------------ Arms ------------------------------ */
 
@@ -280,97 +363,118 @@ export class PlayerController {
     const eyes = new THREE.Group();
     for (const sign of [-1, 1]) {
       const eye = new THREE.Group();
-      eye.position.set(sign * 0.066, -0.012, 0.128);
-      eye.rotation.y = sign * 0.16;
+      eye.position.set(sign * 0.064, -0.014, 0.14);
+      eye.rotation.set(0.03, sign * 0.14, 0);
 
-      const white = new THREE.Mesh(new THREE.SphereGeometry(0.044, 12, 10), eyeWhite);
-      white.scale.set(0.94, 1.05, 0.42);
+      // Sclera: a shallow dome, so the eye still catches the light.
+      const white = new THREE.Mesh(new THREE.SphereGeometry(0.046, 14, 12), eyeWhite);
+      white.scale.set(1, 1.1, 0.3);
 
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(0.038, 12, 10), eyeMat);
-      iris.position.set(sign * 0.002, 0.004, 0.019);
-      iris.scale.set(0.95, 1.05, 0.34);
+      // Flat decals just proud of the dome keep the iris crisp at any distance;
+      // spheres stacked in z used to merge into one dark blob.
+      const iris = new THREE.Mesh(new THREE.CircleGeometry(0.0255, 18), eyeMat);
+      iris.position.set(sign * 0.002, -0.002, 0.0162);
+      iris.scale.set(1, 1.12, 1);
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.0122, 16), eyeDark);
+      pupil.position.set(sign * 0.002, -0.002, 0.0168);
+      pupil.scale.set(1, 1.15, 1);
+      const glint = new THREE.Mesh(new THREE.CircleGeometry(0.0062, 12), eyeWhite);
+      glint.position.set(sign * -0.0085, 0.011, 0.0176);
 
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.019, 10, 8), eyeDark);
-      pupil.position.set(sign * 0.002, 0.004, 0.031);
-      pupil.scale.set(0.92, 1.05, 0.4);
+      // Heavy upper lash with an outer flick — the strongest anime cue.
+      const lash = new THREE.Mesh(new THREE.TorusGeometry(0.044, 0.0052, 4, 16, Math.PI * 0.92), lashMat);
+      lash.position.set(0, 0.008, 0.0152);
+      lash.scale.set(1.04, 0.9, 0.35);
+      const flick = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.03, 4), lashMat);
+      flick.position.set(sign * 0.047, 0.024, 0.0135);
+      flick.rotation.z = sign * -1.05;
 
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.011, 6, 5), eyeWhite);
-      glint.position.set(sign * -0.012, 0.017, 0.038);
-      glint.scale.set(1, 1, 0.5);
-      const glintSmall = new THREE.Mesh(new THREE.SphereGeometry(0.006, 6, 5), eyeWhite);
-      glintSmall.position.set(sign * 0.011, -0.014, 0.038);
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.056, 0.009, 0.008), hairShade);
+      brow.position.set(0, 0.083, -0.006);
+      brow.rotation.z = sign * -0.12;
 
-      // Upper lash line, the strongest anime cue.
-      const lash = new THREE.Mesh(new THREE.TorusGeometry(0.042, 0.008, 4, 12, Math.PI), lashMat);
-      lash.rotation.set(0, 0, 0);
-      lash.position.set(0, 0.014, 0.016);
-      lash.scale.set(1, 0.9, 0.5);
-
-      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.011, 0.012), hairShade);
-      brow.position.set(0, 0.088, 0.03);
-      brow.rotation.z = sign * -0.14;
-
-      eye.add(white, iris, pupil, glint, glintSmall, lash, brow);
+      eye.add(white, iris, pupil, glint, lash, flick, brow);
       eyes.add(eye);
     }
     this.eyes = eyes;
 
-    const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 4, 10, Math.PI), mouthMat);
+    const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.013, 0.0026, 4, 12, Math.PI), mouthMat);
     mouth.rotation.z = Math.PI;
-    mouth.position.set(0, -0.086, 0.138);
+    mouth.position.set(0, -0.079, 0.153);
     mouth.scale.set(1, 0.8, 1);
-    const blushL = new THREE.Mesh(new THREE.CircleGeometry(0.021, 10), blushMat);
-    blushL.position.set(-0.095, -0.045, 0.126);
-    blushL.rotation.y = -0.45;
+    const blushL = new THREE.Mesh(new THREE.CircleGeometry(0.015, 12), blushMat);
+    blushL.position.set(-0.104, -0.058, 0.132);
+    blushL.rotation.set(0, -0.55, 0.2);
     const blushR = blushL.clone();
-    blushR.position.x = 0.095;
-    blushR.rotation.y = 0.45;
+    blushR.position.x = 0.104;
+    blushR.rotation.set(0, 0.55, -0.2);
 
-    this.head.add(skull, jaw, eyes, mouth, blushL, blushR);
+    // Nose, chin shading and an ear cuff: small cues that stop the face from
+    // reading as a blank mannequin when the camera walks in close.
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), skinShade);
+    nose.position.set(0, -0.042, 0.152);
+    nose.scale.set(0.85, 0.7, 0.65);
+    const earCuff = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.005, 4, 10), gold);
+    earCuff.position.set(0.152, -0.03, 0.002);
+    earCuff.rotation.y = Math.PI / 2;
+
+    this.head.add(skull, jaw, eyes, mouth, blushL, blushR, nose, earCuff);
 
     /* ------------------------------ Hair ------------------------------ */
 
-    const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.172, 18, 14), hairMat);
+    // Back hair only: a full sphere would swallow the face, which is exactly
+    // what used to hide the eyes behind the fringe.
+    const hairBack = new THREE.Mesh(
+      new THREE.SphereGeometry(0.172, 20, 14, Math.PI * 1.02, Math.PI * 0.96),
+      hairMat,
+    );
     hairBack.scale.set(1.02, 1.04, 1.04);
     hairBack.position.set(0, 0.012, -0.018);
 
     // The fringe cap sits on the crown; separate strands do the shaping.
+    // The cap stops at the hairline. Anything longer sweeps over the brow and
+    // buries the eyes, which is what made the face invisible up close. It is
+    // also cut open at the front (phiStart/phiLength) so it never covers the
+    // face even when the head tilts.
     const cap = new THREE.Mesh(
-      new THREE.SphereGeometry(0.172, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.56),
+      new THREE.SphereGeometry(0.175, 22, 12, Math.PI * 0.24, Math.PI * 1.52, 0, Math.PI * 0.46),
       hairMat,
     );
     cap.position.set(0, 0.014, 0);
-    cap.rotation.x = -0.1;
+    cap.rotation.x = -0.06;
 
     const hairPieces = [hairBack, cap];
     // Fringe strands: short, tucked under the cap and pointed *at* the brows,
     // so they read as hair rather than as horns.
     const fringeSpecs = [
-      [-0.105, 0.055, 0.093, 0.13, 0.16],
-      [-0.06, 0.07, 0.115, 0.15, 0.07],
-      [-0.012, 0.074, 0.124, 0.16, 0.0],
-      [0.04, 0.07, 0.116, 0.15, -0.07],
-      [0.09, 0.058, 0.096, 0.13, -0.16],
+      [-0.105, 0.066, 0.093, 0.105, 0.16],
+      [-0.06, 0.08, 0.115, 0.115, 0.07],
+      [-0.012, 0.084, 0.126, 0.125, 0.0],
+      [0.04, 0.08, 0.116, 0.115, -0.07],
+      [0.09, 0.068, 0.096, 0.105, -0.16],
     ];
-    for (const [x, y, z, len, tilt] of fringeSpecs) {
-      const strand = new THREE.Mesh(new THREE.ConeGeometry(0.03, len, 5), hairMat);
+    fringeSpecs.forEach(([x, y, z, len, tilt], index) => {
+      const strand = new THREE.Mesh(
+        new THREE.ConeGeometry(0.024, len, 5),
+        index % 2 === 0 ? hairMat : hairShade,
+      );
       strand.position.set(x, y, z);
-      strand.rotation.set(Math.PI - 0.05, 0, tilt);
-      strand.scale.set(1.15, 1, 0.6);
+      strand.rotation.set(Math.PI - 0.03, 0, tilt);
+      strand.scale.set(1.1, 1, 0.5);
       hairPieces.push(strand);
-    }
+    });
 
     // Long side locks framing the face.
     for (const sign of [-1, 1]) {
-      const lock = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.34, 7), hairMat);
-      lock.position.set(sign * 0.15, -0.08, 0.012);
-      lock.rotation.set(Math.PI - 0.1, 0, sign * 0.1);
-      lock.scale.set(1, 1, 0.72);
+      const lock = new THREE.Mesh(new THREE.ConeGeometry(0.043, 0.32, 7), hairMat);
+      lock.position.set(sign * 0.163, -0.075, -0.03);
+      lock.rotation.set(Math.PI - 0.08, 0, sign * 0.09);
+      lock.scale.set(1, 1, 0.62);
       hairPieces.push(lock);
-      const lockTip = new THREE.Mesh(new THREE.ConeGeometry(0.034, 0.13, 6), hairShade);
-      lockTip.position.set(sign * 0.163, -0.255, 0.03);
-      lockTip.rotation.set(Math.PI - 0.08, 0, sign * 0.13);
-      lockTip.scale.set(1, 1, 0.74);
+      const lockTip = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.12, 6), hairShade);
+      lockTip.position.set(sign * 0.175, -0.245, -0.02);
+      lockTip.rotation.set(Math.PI - 0.06, 0, sign * 0.1);
+      lockTip.scale.set(1, 1, 0.66);
       hairPieces.push(lockTip);
     }
 
@@ -406,6 +510,40 @@ export class PlayerController {
     ponytail.add(tie);
     this.ponytail = ponytail;
     hairPieces.push(tie);
+
+    // Pale highlight strands across the crown.
+    const hairLight = toon('#f6ecd2');
+    for (const [x, y, z, tilt, len] of [
+      [-0.085, 0.095, 0.105, -0.3, 0.1],
+      [-0.015, 0.135, 0.105, 0.04, 0.13],
+      [0.07, 0.105, 0.1, 0.26, 0.095],
+    ]) {
+      const shine = new THREE.Mesh(new THREE.ConeGeometry(0.017, len, 4), hairLight);
+      shine.position.set(x, y, z);
+      shine.rotation.set(Math.PI - 0.2, 0, tilt);
+      shine.scale.set(1.1, 1, 0.42);
+      hairPieces.push(shine);
+    }
+
+    // A small gold crescent clip over the left temple.
+    const clip = new THREE.Mesh(new THREE.TorusGeometry(0.021, 0.0045, 4, 14, Math.PI * 1.2), gold);
+    clip.position.set(-0.108, 0.096, 0.108);
+    clip.rotation.set(0.42, -0.6, 1.25);
+    const clipPin = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 5), accentDeep);
+    clipPin.position.set(-0.09, 0.083, 0.132);
+    hairPieces.push(clip, clipPin);
+
+    // Ribbon bow at the base of the ponytail.
+    const bowKnot = new THREE.Mesh(new THREE.SphereGeometry(0.019, 8, 6), accent);
+    bowKnot.position.set(0, 0.008, -0.185);
+    const bowWing = new THREE.Mesh(new THREE.ConeGeometry(0.028, 0.07, 4), accent);
+    bowWing.position.set(-0.042, 0.014, -0.19);
+    bowWing.rotation.set(0.2, 0, Math.PI * 0.62);
+    bowWing.scale.set(1, 1, 0.5);
+    const bowWingR = bowWing.clone();
+    bowWingR.position.x = 0.042;
+    bowWingR.rotation.z = -Math.PI * 0.62;
+    hairPieces.push(bowKnot, bowWing, bowWingR);
 
     this.head.add(...hairPieces);
     for (const piece of [hairBack, cap]) this._outline(piece, 1.03);
@@ -578,6 +716,9 @@ export class PlayerController {
     const accent = looks.dye || { color: '#2f6d78', deep: '#1d4854' };
     this.materials.accent.color.set(accent.color);
     this.materials.accentDeep.color.set(accent.deep);
+    for (const material of this._accentClones || []) material.color.set(accent.color);
+    const clothTint = looks.cape ? new THREE.Color(looks.cape.color).lerp(new THREE.Color('#f8f3e6'), 0.82) : null;
+    for (const material of this._clothClones || []) material.color.copy(clothTint || this.materials.clothShade.color);
 
     const cape = looks.cape || { color: '#295f6b', deep: '#1a3f48' };
     this.capeMaterial.color.set(cape.color);
@@ -673,13 +814,20 @@ export class PlayerController {
     this.velocity.x += (targetVX - this.velocity.x) * blend;
     this.velocity.z += (targetVZ - this.velocity.z) * blend;
 
-    // Jump
-    if (!blocked && input.consumePress('jump') && this.grounded && this.stamina > JUMP_COST) {
+    // Jump — buffered and forgiving, and never silently refused for stamina.
+    if (input.consumePress('jump')) this.jumpBuffer = JUMP_BUFFER_TIME;
+    this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
+    this.coyote = this.grounded ? COYOTE_TIME : Math.max(0, this.coyote - dt);
+
+    if (!blocked && this.jumpBuffer > 0 && this.coyote > 0 && this.stamina > 1) {
       this.velocity.y = JUMP_VELOCITY;
       this.grounded = false;
+      this.coyote = 0;
+      this.jumpBuffer = 0;
       this.stamina = Math.max(0, this.stamina - JUMP_COST);
       this.staminaLock = 0.7;
       this.game.audio?.play('jump');
+      this.game.worlds?.spawnFootstepDust?.(this.position, 1.6);
     }
 
     // Gravity
