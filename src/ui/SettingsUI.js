@@ -11,8 +11,9 @@ export class SettingsUI {
     this.modal = new Modal(game);
   }
 
-  open({ fromTitle = false } = {}) {
+  open({ fromTitle = false, returnToPause = false } = {}) {
     if (this.modal.isOpen) return;
+    this._returnToPause = returnToPause;
     const settings = this.game.settings;
     const wrap = document.createElement('div');
 
@@ -120,7 +121,7 @@ export class SettingsUI {
     controlsBtn.type = 'button';
     controlsBtn.className = 'btn btn-ghost';
     controlsBtn.textContent = 'Controls';
-    controlsBtn.addEventListener('click', () => this.showControls());
+    controlsBtn.addEventListener('click', () => this.showControls({ returnToPause: this._returnToPause }));
 
     const safeBtn = document.createElement('button');
     safeBtn.type = 'button';
@@ -150,7 +151,13 @@ export class SettingsUI {
       subtitle: 'Shape the journey to your liking',
       body: wrap,
       actions,
-      onClose: () => this.game.saveSettings(),
+      onClose: () => {
+        this.game.saveSettings();
+        if (this._returnToPause) {
+          this._returnToPause = false;
+          this.game.returnToPause?.();
+        }
+      },
     });
   }
 
@@ -198,7 +205,7 @@ export class SettingsUI {
     return row;
   }
 
-  showControls() {
+  showControls({ returnToPause = false } = {}) {
     const wrap = document.createElement('div');
     wrap.innerHTML = `
       <div class="settings-section">
@@ -209,6 +216,7 @@ export class SettingsUI {
         <div class="setting-row"><span class="setting-label">Jump<small>Uses a little stamina</small></span><span class="range-value" style="width:auto">Space</span></div>
         <div class="setting-row"><span class="setting-label">Sprint<small>Hold while moving</small></span><span class="range-value" style="width:auto">Shift</span></div>
         <div class="setting-row"><span class="setting-label">Satchel / Journal<small>Quest items and chapters</small></span><span class="range-value" style="width:auto">I / J</span></div>
+        <div class="setting-row"><span class="setting-label">Ledger &amp; wishes<small>Shop, wishing star and your look</small></span><span class="range-value" style="width:auto">B</span></div>
         <div class="setting-row"><span class="setting-label">Pause<small>Settings and recovery</small></span><span class="range-value" style="width:auto">Esc</span></div>
       </div>
       <div class="settings-section">
@@ -227,6 +235,9 @@ export class SettingsUI {
       subtitle: 'The same controller on every device',
       body: wrap,
       actions: [{ label: 'Back', variant: 'ghost' }],
+      onClose: () => {
+        if (returnToPause) this.game.returnToPause?.();
+      },
     });
   }
 }
@@ -235,6 +246,16 @@ export class PauseMenu {
   constructor(game) {
     this.game = game;
     this.modal = new Modal(game);
+    // True while the pause modal is being swapped for a panel. Without it, the
+    // pause modal's own onClose would resume the game underneath that panel.
+    this._handingOff = false;
+  }
+
+  /** Close the pause menu, then open a panel that returns here when closed. */
+  _openPanel(open) {
+    this._handingOff = true;
+    this.modal.close();
+    open();
   }
 
   open() {
@@ -267,20 +288,19 @@ export class PauseMenu {
       this.game.resume();
     }, 'btn-primary');
     addAction('Adventure Journal', () => {
-      this.modal.close();
-      this.game.journalUI.open();
+      this._openPanel(() => this.game.journalUI.open({ returnToPause: true }));
     });
     addAction('Satchel', () => {
-      this.modal.close();
-      this.game.inventoryUI.open();
+      this._openPanel(() => this.game.inventoryUI.open({ returnToPause: true }));
+    });
+    addAction("Wanderer's Ledger & Wishing Star", () => {
+      this._openPanel(() => this.game.shopUI.open({ returnToPause: true }));
     });
     addAction('Settings', () => {
-      this.modal.close();
-      this.game.settingsUI.open();
+      this._openPanel(() => this.game.settingsUI.open({ returnToPause: true }));
     });
     addAction('Controls', () => {
-      this.modal.close();
-      this.game.settingsUI.showControls();
+      this._openPanel(() => this.game.settingsUI.showControls({ returnToPause: true }));
     });
     addAction('Return to safe point', () => {
       this.modal.close();
@@ -303,7 +323,13 @@ export class PauseMenu {
       subtitle: 'The wind will wait',
       body: wrap,
       closable: true,
-      onClose: () => this.game.resume(),
+      onClose: () => {
+        if (this._handingOff) {
+          this._handingOff = false;
+          return;
+        }
+        this.game.resume();
+      },
     });
   }
 }

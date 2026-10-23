@@ -7,6 +7,8 @@
  * prevent the game from starting.
  */
 
+import { normalizeWallet } from '../story/shopData.js';
+
 export const SAVE_KEY = 'asteria:save:v1';
 export const SETTINGS_KEY = 'asteria:settings:v1';
 export const SAVE_VERSION = 1;
@@ -35,6 +37,7 @@ export function createNewState() {
     completed: [],
     flags: {},
     items: {},
+    wallet: normalizeWallet(null),
     discoveredPage: false,
     endingSeen: false,
     playtime: 0,
@@ -59,6 +62,7 @@ export function normalizeState(raw) {
     completed: Array.isArray(raw.completed) ? raw.completed.filter((n) => Number.isInteger(n) && n >= 1 && n <= 5) : [],
     flags: isPlainObject(raw.flags) ? { ...raw.flags } : {},
     items: isPlainObject(raw.items) ? { ...raw.items } : {},
+    wallet: normalizeWallet(raw.wallet),
     level: Number.isInteger(raw.level) && raw.level >= 1 && raw.level <= 5 ? raw.level : 1,
     world: typeof raw.world === 'string' && raw.world ? raw.world : 'mondstadt',
     spawn: typeof raw.spawn === 'string' && raw.spawn ? raw.spawn : 'default',

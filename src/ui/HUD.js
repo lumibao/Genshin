@@ -36,6 +36,8 @@ export class HUD {
 
   _bind() {
     document.getElementById('btn-inventory')?.addEventListener('click', () => this.game.inventoryUI.open());
+    document.getElementById('btn-shop')?.addEventListener('click', () => this.game.shopUI?.open());
+    this.titleTag = document.getElementById('chapter-title-tag');
     document.getElementById('btn-menu')?.addEventListener('click', () => this.game.openPauseMenu());
     document.getElementById('btn-sound')?.addEventListener('click', () => this.game.toggleMute());
     this.promptEl?.addEventListener('click', () => this.game.interactions?.activateNearest());
@@ -56,6 +58,14 @@ export class HUD {
 
   setChapter(kicker, title) {
     this.tracker.setChapter(kicker, title);
+  }
+
+  /** The title a look grants, shown under the chapter badge. */
+  setTitleTag(title) {
+    if (!this.titleTag) this.titleTag = document.getElementById('chapter-title-tag');
+    if (!this.titleTag) return;
+    this.titleTag.textContent = title || '';
+    this.titleTag.classList.toggle('hidden', !title);
   }
 
   setLevel(levelId) {

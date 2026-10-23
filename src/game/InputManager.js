@@ -20,6 +20,7 @@ const ACTION_KEYS = {
   menu: ['Escape'],
   inventory: ['KeyI'],
   journal: ['KeyJ'],
+  shop: ['KeyB'],
   map: ['KeyM'],
   help: ['KeyH'],
 };

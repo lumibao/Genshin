@@ -135,7 +135,7 @@ try {
     for (const system of [
       'renderer', 'sceneManager', 'cameraController', 'input', 'collision', 'audio',
       'mobile', 'inventory', 'quests', 'levels', 'player', 'worlds', 'interactions',
-      'hud', 'dialogue', 'inventoryUI', 'journalUI', 'settingsUI', 'pauseMenu',
+      'hud', 'dialogue', 'inventoryUI', 'journalUI', 'shop', 'shopUI', 'settingsUI', 'pauseMenu',
       'cinematics', 'bookUI', 'secretReveal', 'ending', 'modal',
     ]) {
       assert.ok(game[system], `missing system: ${system}`);
@@ -265,6 +265,79 @@ try {
       assert.equal(document.querySelectorAll('#ui-root .modal-layer').length, 0,
         `${name}: layers left ${document.querySelectorAll('#ui-root .modal-layer').length}`);
     }
+  });
+
+  await test('the ledger trades mora for looks and dresses the running traveler', async () => {
+    const purseBefore = game.shop.mora;
+    assert.equal(purseBefore, 220 + 15 * 3 + 120, 'starting purse plus fragments and the chapter reward');
+
+    game.shopUI.open();
+    assert.equal(game.isInputBlocked(), true);
+    assert.ok(document.querySelector('#ui-root .shop'), 'the ledger rendered');
+
+    // Wish once through the real button.
+    document.querySelector('#ui-root .shop-tab[data-tab="wish"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    document.querySelector('#ui-root .shop-wish-one').click();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    assert.equal(game.shop.wallet.wishes, 1);
+    assert.equal(game.shop.mora, purseBefore - 20, 'the wish was paid for');
+    assert.ok(game.shop.unlockedCount >= 1, 'something was won');
+    assert.equal(document.querySelectorAll('#ui-root .shop-result').length, 1);
+
+    // A cape bought (or won) is worn by the model in the scene, not only in data.
+    game.shop.wallet.owned.push('look.cape.ember');
+    game.shop.equip('look.cape.ember');
+    assert.equal(game.player.capeMaterial.color.getHexString(), '8f4436');
+    assert.equal(game.state.wallet.equipped.cape, 'look.cape.ember');
+
+    document.querySelector('#ui-root .modal-close').click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(game.isInputBlocked(), false);
+    assert.equal(document.querySelectorAll('#ui-root .modal-layer').length, 0);
+  });
+
+  await test('the pause menu offers the ledger, and a lost pointer lock pauses the game', async () => {
+    game.openPauseMenu();
+    const labels = [...document.querySelectorAll('#ui-root .pause-actions .btn')].map((b) => b.textContent);
+    assert.ok(labels.some((label) => label.includes("Wanderer's Ledger")), 'the ledger is reachable from the pause menu');
+
+    document.querySelector('#ui-root .modal-close').click();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(game.paused, false);
+
+    // Browsers swallow the Escape keydown that releases the mouse. Losing the
+    // lock is therefore treated as the pause request.
+    game._onPointerLockChange(false);
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(game.paused, true, 'the menu opened when the pointer lock was released');
+    assert.ok(document.querySelector('#ui-root .modal-layer'));
+    game.resume();
+    game.pauseMenu.modal.close();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+
+  await test('a panel opened from the pause menu comes back to the pause menu', async () => {
+    game.openPauseMenu();
+    assert.equal(game.paused, true);
+    const satchel = [...document.querySelectorAll('#ui-root .pause-actions .btn')].find(
+      (button) => button.textContent === 'Satchel',
+    );
+    satchel.click();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    assert.equal(game.paused, true, 'opening the satchel does not resume the world');
+    assert.ok(document.querySelector('#ui-root .inventory-grid'), 'the satchel is on screen');
+
+    document.querySelector('#ui-root .modal-close').click();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(game.paused, true, 'closing the satchel must not leave a frozen world');
+    assert.ok(document.querySelector('#ui-root .pause-actions'), 'the pause menu is back');
+
+    document.querySelector('#ui-root .pause-actions .btn-primary').click();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(game.paused, false, 'Resume returns to the world');
+    assert.equal(document.querySelectorAll('#ui-root .modal-layer').length, 0);
   });
 
   await test('the hidden page cannot be revealed before its chapter', async () => {

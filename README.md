@@ -94,6 +94,7 @@ src/
     QuestManager.js        objective snapshots and chapter completion
     LevelManager.js        travel gates, first-visit beats, rewards
     InventoryManager.js    items and pickups
+    ShopManager.js         the wallet, the ledger and the wishing star
     Progression.js         pure functions over saved progress
     SaveManager.js         versioned localStorage save + settings
     AudioManager.js        synthesised music, ambience and SFX
@@ -112,9 +113,10 @@ src/
     CelestialSanctuary.js  the ending area
   ui/
     HUD.js, QuestTracker.js, DialogueUI.js, BookUI.js, InventoryUI.js,
-    JournalUI.js, SettingsUI.js, Cinematics.js, Modal.js
+    JournalUI.js, ShopUI.js, SettingsUI.js, Cinematics.js, Modal.js
   story/
     storyData.js           lore, barks, chapter cards, world intros
+    shopData.js            looks, prices, wish pool, pity and reward rates
     questData.js           the five chapters and their objective predicates
     dialogueData.js        NPCs and conversations
     SecretReveal.js        the reveal sequence and its gate
@@ -166,3 +168,37 @@ real browser.
   closes on `Esc`. Hints can be turned off without hiding objectives.
 * **Mobile.** Landscape is recommended; a rotate prompt appears in portrait on
   touch devices.
+
+---
+
+## The Wanderer's Ledger (shop, wishes and looks)
+
+Open the ledger with **B**, the star button in the HUD, or *Wanderer's Ledger &
+Wishing Star* in the pause menu.
+
+Everything it trades in is **cosmetic**. Quest items — wind fragments, keys,
+pages, seals — are never sold and never bought, so the shop cannot open or
+close a chapter. Wares and wishes both pay out "looks":
+
+| Slot | What it changes |
+| --- | --- |
+| Title | a line under the chapter badge |
+| Cape | the cape's cloth colour |
+| Charm | the pendant's colour and glow |
+| Dye | the tunic, skirt and cuff accent |
+| Companion | a small wisp that hovers at your shoulder |
+
+Prices, the wish pool, rarity weights, pity and reward rates all live in
+`src/story/shopData.js`:
+
+* **Wishes** cost 20 mora, or 170 for ten. You never receive a look you already
+  own until every look is owned; after that, duplicates return 30 mora.
+* **Pity** is published and true: a legendary is guaranteed within **20**
+  wishes, and the counter is visible above the tabs.
+* **Mora** comes from finishing chapters (120), carrying wind fragments home
+  (15 each), reaching the ending (200) and — generously — from discovering the
+  hidden page (500), so a reader is never priced out of a nice cape.
+
+The wallet (`state.wallet`) is part of the save: mora, purchases, owned looks,
+worn looks, pity and wish count all survive a reload, and `normalizeWallet()`
+drops anything unknown so a hand-edited save cannot inject a look.
