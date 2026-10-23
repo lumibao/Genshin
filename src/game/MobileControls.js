@@ -14,6 +14,9 @@ export class MobileControls {
     this.active = false;
     this.joystickPointerId = null;
     this.lookPointerId = null;
+    // Pinch-to-zoom state: two fingers on the look area pull the camera in.
+    this.lookPointers = new Map();
+    this.pinchGap = 0;
     this.lookLast = { x: 0, y: 0 };
     this.maxRadius = 52;
     this._idleTimer = null;
@@ -69,13 +72,33 @@ export class MobileControls {
     if (this.lookArea) {
       this.lookArea.addEventListener('pointerdown', (event) => {
         if (event.pointerType === 'mouse') return;
-        this.lookPointerId = event.pointerId;
-        this.lookLast.x = event.clientX;
-        this.lookLast.y = event.clientY;
+        this.lookPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        if (this.lookPointers.size >= 2) {
+          // Two fingers: this gesture is a pinch, not a look.
+          this.lookPointerId = null;
+          this.pinchGap = this._pointerGap();
+        } else {
+          this.lookPointerId = event.pointerId;
+          this.lookLast.x = event.clientX;
+          this.lookLast.y = event.clientY;
+        }
         this.lookArea.classList.remove('is-idle');
         this.lookArea.setPointerCapture?.(event.pointerId);
       });
       this.lookArea.addEventListener('pointermove', (event) => {
+        if (this.lookPointers.has(event.pointerId)) {
+          this.lookPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        }
+        if (this.lookPointers.size >= 2) {
+          const gap = this._pointerGap();
+          if (this.pinchGap > 0 && gap > 0) {
+            // Pinching in (smaller gap) should pull the camera closer.
+            this.input.addZoom((this.pinchGap - gap) * 0.02);
+          }
+          this.pinchGap = gap;
+          this._markIdle();
+          return;
+        }
         if (event.pointerId !== this.lookPointerId) return;
         const dx = event.clientX - this.lookLast.x;
         const dy = event.clientY - this.lookLast.y;
@@ -85,6 +108,8 @@ export class MobileControls {
         this._markIdle();
       });
       const endLook = (event) => {
+        this.lookPointers.delete(event.pointerId);
+        if (this.lookPointers.size < 2) this.pinchGap = 0;
         if (event.pointerId !== this.lookPointerId) return;
         this.lookPointerId = null;
         this._markIdle();
@@ -130,6 +155,13 @@ export class MobileControls {
     window.addEventListener('resize', () => this._updateRadius());
     window.addEventListener('orientationchange', () => setTimeout(() => this._updateRadius(), 240));
     this._updateRadius();
+  }
+
+  /** Distance between the two active look fingers, in CSS pixels. */
+  _pointerGap() {
+    const points = [...this.lookPointers.values()];
+    if (points.length < 2) return 0;
+    return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
   }
 
   _updateRadius() {

@@ -114,6 +114,82 @@
   mix-blend-mode: screen;
 }
 
+/* The title's night sky: a scatter of stars and a slow shooting star that
+   answers the Wishing Star's scene. */
+.title-sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background-image:
+    radial-gradient(1.4px 1.4px at 12% 18%, rgba(255, 250, 235, 0.85), transparent 60%),
+    radial-gradient(1.2px 1.2px at 28% 42%, rgba(232, 240, 255, 0.7), transparent 60%),
+    radial-gradient(1.8px 1.8px at 46% 14%, rgba(255, 246, 220, 0.8), transparent 60%),
+    radial-gradient(1.1px 1.1px at 63% 32%, rgba(226, 236, 255, 0.6), transparent 60%),
+    radial-gradient(1.6px 1.6px at 79% 20%, rgba(255, 250, 235, 0.75), transparent 60%),
+    radial-gradient(1.2px 1.2px at 88% 46%, rgba(232, 240, 255, 0.6), transparent 60%),
+    radial-gradient(1.3px 1.3px at 18% 62%, rgba(255, 246, 220, 0.5), transparent 60%),
+    radial-gradient(1.5px 1.5px at 54% 54%, rgba(255, 250, 235, 0.45), transparent 60%),
+    radial-gradient(1.1px 1.1px at 72% 66%, rgba(232, 240, 255, 0.45), transparent 60%),
+    radial-gradient(1.4px 1.4px at 36% 76%, rgba(255, 246, 220, 0.4), transparent 60%);
+  opacity: 0.85;
+  animation: titleSkyBreathe 9s ease-in-out infinite;
+}
+
+.title-sky::before {
+  content: '';
+  position: absolute;
+  top: 12%;
+  left: 104%;
+  width: clamp(120px, 18vw, 220px);
+  height: 1.5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 246, 220, 0.9), transparent);
+  box-shadow: 0 0 12px rgba(255, 246, 220, 0.6);
+  transform: rotate(16deg);
+  animation: titleShootingStar 11s ease-in-out infinite;
+  opacity: 0;
+}
+
+@keyframes titleShootingStar {
+  0%, 62% {
+    transform: translate3d(0, 0, 0) rotate(16deg);
+    opacity: 0;
+  }
+  66% {
+    opacity: 0.9;
+  }
+  78% {
+    transform: translate3d(-118vw, 30vh, 0) rotate(16deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(-118vw, 30vh, 0) rotate(16deg);
+    opacity: 0;
+  }
+}
+
+@keyframes titleSkyBreathe {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 0.95; }
+}
+
+.reduced-motion .title-sky,
+.reduced-motion .title-sky::before {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .title-sky,
+  .title-sky::before {
+    animation: none;
+  }
+
+  .title-sky::before {
+    opacity: 0;
+  }
+}
+
 .title-screen.is-leaving {
   opacity: 0;
   visibility: hidden;

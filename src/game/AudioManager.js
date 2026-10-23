@@ -568,6 +568,15 @@ export class AudioManager {
         case 'reveal':
           this._revealSwell();
           break;
+        case 'wish':
+          // The wish gathering: a rising thread of air, then a distant bell.
+          this._sweep({ from: 220, to: 880, duration: 1.5, gain: 0.035, type: 'sine' });
+          this._chime([1318, 1760], 0.7, 0.02, 0.35);
+          break;
+        case 'wishBurst':
+          this._noise({ duration: 0.35, gain: 0.045, freq: 3200 });
+          this._chime([784, 1046, 1318, 1568], 1.4, 0.038);
+          break;
         case 'chapter':
           this._chime([261.6, 392, 523.2], 1.6, 0.04);
           break;

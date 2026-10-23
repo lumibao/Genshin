@@ -217,13 +217,16 @@ export class SettingsUI {
         <div class="setting-row"><span class="setting-label">Sprint<small>Hold while moving</small></span><span class="range-value" style="width:auto">Shift</span></div>
         <div class="setting-row"><span class="setting-label">Satchel / Journal<small>Quest items and chapters</small></span><span class="range-value" style="width:auto">I / J</span></div>
         <div class="setting-row"><span class="setting-label">Ledger &amp; wishes<small>Shop, wishing star and your look</small></span><span class="range-value" style="width:auto">B</span></div>
-        <div class="setting-row"><span class="setting-label">Pause<small>Settings and recovery</small></span><span class="range-value" style="width:auto">Esc</span></div>
+        <div class="setting-row"><span class="setting-label">Zoom<small>Pull the camera in for a closer look</small></span><span class="range-value" style="width:auto">Wheel</span></div>
+        <div class="setting-row"><span class="setting-label">Pause<small>Settings, the mirror and recovery</small></span><span class="range-value" style="width:auto">Esc</span></div>
       </div>
       <div class="settings-section">
         <h3>Touch</h3>
         <div class="setting-row"><span class="setting-label">Move<small>Left thumb joystick</small></span><span class="range-value" style="width:auto">◉</span></div>
         <div class="setting-row"><span class="setting-label">Look<small>Swipe the right side of the screen</small></span><span class="range-value" style="width:auto">☞</span></div>
         <div class="setting-row"><span class="setting-label">Interact / Jump<small>Buttons at the lower right</small></span><span class="range-value" style="width:auto">✦ ↑</span></div>
+        <div class="setting-row"><span class="setting-label">Zoom<small>Pinch with two fingers on the look area</small></span><span class="range-value" style="width:auto">⇱ ⇲</span></div>
+        <div class="setting-row"><span class="setting-label">Mirror<small>Pause → Look at the traveler: drag to turn, pinch to zoom</small></span><span class="range-value" style="width:auto">◎</span></div>
       </div>
       <div class="settings-section">
         <h3>If something goes wrong</h3>
@@ -295,6 +298,9 @@ export class PauseMenu {
     });
     addAction("Wanderer's Ledger & Wishing Star", () => {
       this._openPanel(() => this.game.shopUI.open({ returnToPause: true }));
+    });
+    addAction('Look at the traveler', () => {
+      this._openPanel(() => this.game.openCharacterViewer({ returnToPause: true }));
     });
     addAction('Settings', () => {
       this._openPanel(() => this.game.settingsUI.open({ returnToPause: true }));

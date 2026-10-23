@@ -79,6 +79,9 @@ const { FinalEnding } = await import('../src/story/FinalEnding.js');
 const { createNewState } = await import('../src/game/SaveManager.js');
 const { ShopManager } = await import('../src/game/ShopManager.js');
 const { ShopUI } = await import('../src/ui/ShopUI.js');
+const { WishCinematic } = await import('../src/ui/WishCinematic.js');
+const { CharacterViewer } = await import('../src/ui/CharacterViewer.js');
+const { CameraController } = await import('../src/game/CameraController.js');
 const shopData = await import('../src/story/shopData.js');
 const { InputManager } = await import('../src/game/InputManager.js');
 const { MobileControls } = await import('../src/game/MobileControls.js');
@@ -918,6 +921,219 @@ await test('a jump tapped just before landing is not swallowed', async () => {
     if (player.velocity.y > 3) landedJumped = true;
   }
   assert.ok(landedJumped, 'the buffered tap fires on landing instead of being dropped');
+});
+
+/* ------------------------------------------------------------------ */
+/* The wishing star's pull scene                                      */
+/* ------------------------------------------------------------------ */
+
+await test('a wish opens the falling-star scene and skipping reveals the list', async () => {
+  clearDynamicUi();
+  const game = makeGame();
+  game.settings.reducedMotion = false;
+  game.shop = new ShopManager(game);
+  const shopUI = new ShopUI(game);
+  shopUI.open();
+  uiRoot().querySelector('.shop-tab[data-tab="wish"]').click();
+  await sleep(0);
+
+  assert.ok(uiRoot().querySelector('.shop-wish-sky'), 'the wish tab has its own night sky');
+  assert.ok(uiRoot().querySelector('.shop-pity-track'), 'the pity guarantee is a visible road');
+
+  uiRoot().querySelector('.shop-wish-one').click();
+  await sleep(0);
+
+  const scene = document.querySelector('.wish-scene');
+  assert.ok(scene, 'the pull opens a full-screen scene');
+  assert.ok(scene.querySelector('.wish-canvas'), 'the scene draws the star on a canvas');
+  assert.ok(scene.querySelector('.wish-card-name').textContent.length > 0, 'the card names the result');
+
+  const slot = uiRoot().querySelector('.shop-wish-result');
+  assert.ok(slot.classList.contains('is-awaiting-reveal'), 'the list waits for the star');
+  assert.equal(uiRoot().querySelectorAll('.shop-result').length, 1, 'the result is already in the DOM');
+
+  game.shopUI = shopUI;
+  shopUI.cinematic.skip();
+  await sleep(300);
+  assert.equal(document.querySelector('.wish-scene'), null, 'the scene closes when skipped');
+  assert.ok(slot.classList.contains('is-revealed'), 'the list is revealed afterwards');
+  shopUI.close();
+});
+
+await test('the pull scene is a single quiet reveal when motion is reduced', async () => {
+  clearDynamicUi();
+  const game = makeGame(); // reducedMotion: true
+  game.shop = new ShopManager(game);
+  const shopUI = new ShopUI(game);
+  shopUI.open();
+  uiRoot().querySelector('.shop-tab[data-tab="wish"]').click();
+  await sleep(0);
+  uiRoot().querySelector('.shop-wish-one').click();
+  await sleep(0);
+
+  assert.equal(document.querySelector('.wish-scene'), null, 'no flying star for reduced motion');
+  assert.ok(
+    uiRoot().querySelector('.shop-wish-result').classList.contains('is-revealed'),
+    'the results are simply there',
+  );
+  shopUI.close();
+});
+
+await test('the hero card belongs to the rarest result of a ten-pull', () => {
+  const hero = WishCinematic.heroOf([
+    { name: 'Common thing', rarity: 'common' },
+    { name: 'Rare thing', rarity: 'rare' },
+    { name: 'Legendary thing', rarity: 'legendary' },
+    { name: 'Another common', rarity: 'common' },
+  ]);
+  assert.equal(hero.name, 'Legendary thing');
+  assert.equal(WishCinematic.heroOf([]), null);
+});
+
+/* ------------------------------------------------------------------ */
+/* The traveler's mirror                                             */
+/* ------------------------------------------------------------------ */
+
+function makeInspectCamera(overrides = {}) {
+  return new CameraController({
+    renderer: { width: 1280, height: 720 },
+    input: {
+      consumeLookDelta: () => ({ x: 0, y: 0 }),
+      consumeZoom: () => 0,
+    },
+    worlds: { getHeightAt: () => 0 },
+    player: { position: new THREE.Vector3(0, 0, 0), facing: 0 },
+    ...overrides,
+  });
+}
+
+await test('the mirror camera orbits the character and zooms right in', () => {
+  const camera = makeInspectCamera();
+  camera.startInspect();
+  assert.ok(camera.inspect, 'inspect mode is on');
+  for (let i = 0; i < 40; i++) camera.update(1 / 60);
+  const head = new THREE.Vector3(0, 1.2, 0);
+  const distance = camera.camera.position.distanceTo(head);
+  assert.ok(distance < 3.2, `the camera settles close to her (${distance.toFixed(2)})`);
+  assert.ok(distance > 0.6, 'but not inside her head');
+
+  const yaw = camera.inspect.yaw;
+  camera.addInspectLook(0.6, 0.1);
+  assert.notEqual(camera.inspect.yaw, yaw, 'dragging turns the view');
+
+  for (let i = 0; i < 40; i++) camera.zoom(0.5);
+  assert.ok(camera.inspect.targetDistance >= 0.89, 'zooming in is clamped');
+  for (let i = 0; i < 40; i++) camera.zoom(-0.5);
+  assert.ok(camera.inspect.targetDistance <= 4.61, 'zooming out is clamped');
+
+  camera.stopInspect();
+  assert.equal(camera.inspect, null, 'the mirror releases the camera');
+});
+
+await test('the mirror opens, turns on drag, zooms on tap and closes cleanly', async () => {
+  clearDynamicUi();
+  const calls = [];
+  const camera = {
+    inspectSpin: true,
+    inspect: { yaw: 0, pitch: 0, targetDistance: 2.3, idle: 0 },
+    addInspectLook: (dx, dy) => calls.push(`look:${dx.toFixed(3)}:${dy.toFixed(3)}`),
+    zoom: (delta) => calls.push(`zoom:${delta.toFixed(2)}`),
+    setInspectSpin: (on) => calls.push(`spin:${on}`),
+    startInspect: () => calls.push('start'),
+    stopInspect: () => calls.push('stop'),
+    snapToPlayer: () => {},
+  };
+  const game = makeGame();
+  game.cameraController = camera;
+  game.player = { facing: 0, position: new THREE.Vector3() };
+  game.shop = new ShopManager(game);
+  game.openCharacterViewer = () => calls.push('open');
+  game.closeCharacterViewer = () => calls.push('close');
+
+  const viewer = new CharacterViewer(game);
+  viewer.open();
+  await sleep(0);
+
+  const layer = document.querySelector('.viewer');
+  assert.ok(layer, 'the mirror is on screen');
+  assert.ok(layer.querySelector('.viewer-looks'), 'it lists the worn look');
+  const buttons = [...layer.querySelectorAll('.viewer-btn')];
+  assert.ok(buttons.length >= 4, 'it offers zoom, spin and a way out');
+
+  const stage = layer.querySelector('.viewer-stage');
+  const down = new window.Event('pointerdown', { bubbles: true, cancelable: true });
+  down.pointerId = 1;
+  down.clientX = 400;
+  down.clientY = 300;
+  stage.dispatchEvent(down);
+  const move = new window.Event('pointermove', { bubbles: true, cancelable: true });
+  move.pointerId = 1;
+  move.clientX = 460;
+  move.clientY = 320;
+  stage.dispatchEvent(move);
+  assert.ok(calls.some((call) => call.startsWith('look:')), 'dragging turns the traveler');
+
+  const up = new window.Event('pointerup', { bubbles: true, cancelable: true });
+  up.pointerId = 1;
+  stage.dispatchEvent(up);
+
+  const zoomIn = buttons.find((button) => button.getAttribute('aria-label') === 'Zoom in');
+  zoomIn.click();
+  assert.ok(calls.some((call) => call === 'zoom:0.35'), 'the zoom button works by tap');
+
+  const spin = layer.querySelector('[data-action="spin"]');
+  spin.click();
+  assert.ok(calls.some((call) => call === 'spin:false'), 'the slow spin can be switched off');
+
+  const done = buttons.find((button) => button.getAttribute('aria-label') === 'Close the mirror');
+  done.click();
+  assert.ok(calls.includes('close'), 'the Done button closes the mirror');
+
+  viewer.close();
+  assert.equal(document.querySelector('.viewer'), null, 'the mirror layer is removed');
+  assert.equal(document.body.classList.contains('is-mirror'), false);
+});
+
+await test('the wardrobe and the pause menu both offer the mirror', () => {
+  const shopSource = readFileSync(new URL('../src/ui/ShopUI.js', import.meta.url), 'utf8');
+  const pauseSource = readFileSync(new URL('../src/ui/SettingsUI.js', import.meta.url), 'utf8');
+  const gameSource = readFileSync(new URL('../src/game/Game.js', import.meta.url), 'utf8');
+  const viewerCss = readFileSync(new URL('../src/styles/viewer.css', import.meta.url), 'utf8');
+
+  assert.ok(/openCharacterViewer/.test(shopSource), 'the wardrobe opens the mirror');
+  assert.ok(/openCharacterViewer/.test(pauseSource), 'the pause menu opens the mirror');
+  assert.ok(/closeCharacterViewer/.test(gameSource), 'the game owns the mirror lifecycle');
+  assert.ok(/\.viewer-btn\s*{[^}]*height:\s*46px/s.test(viewerCss), 'the mirror buttons are thumb sized');
+  assert.ok(/\.viewer-stage\s*{[^}]*touch-action:\s*none/s.test(viewerCss), 'dragging does not scroll the page');
+});
+
+await test('pinching on the look area zooms the chase camera', async () => {
+  clearDynamicUi();
+  const input = new InputManager(document.createElement('canvas'));
+  const controls = new MobileControls(input, document.getElementById('mobile-controls'));
+  const look = document.getElementById('touch-look');
+  const send = (type, id, x, y) => {
+    const event = new window.Event(type, { bubbles: true, cancelable: true });
+    event.pointerId = id;
+    event.pointerType = 'touch';
+    event.clientX = x;
+    event.clientY = y;
+    look.dispatchEvent(event);
+  };
+
+  send('pointerdown', 11, 400, 300);
+  send('pointerdown', 12, 500, 300);
+  send('pointermove', 12, 560, 300);
+  const zoom = input.consumeZoom();
+  // Spreading the fingers brings the camera in, so the delta is negative.
+  assert.ok(zoom < 0, `pinching apart should pull the camera closer (${zoom})`);
+
+  send('pointermove', 12, 420, 300);
+  assert.ok(input.consumeZoom() > 0, 'pinching together pushes the camera back out');
+
+  send('pointerup', 11);
+  send('pointerup', 12);
+  controls.dispose?.();
 });
 
 console.log(results.join('\n'));
