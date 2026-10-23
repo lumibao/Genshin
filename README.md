@@ -113,7 +113,9 @@ src/
     CelestialSanctuary.js  the ending area
   ui/
     HUD.js, QuestTracker.js, DialogueUI.js, BookUI.js, InventoryUI.js,
-    JournalUI.js, ShopUI.js, SettingsUI.js, Cinematics.js, Modal.js
+    JournalUI.js, ShopUI.js, SettingsUI.js, Cinematics.js, Modal.js,
+    WishCinematic.js       the wishing star's falling-star pull scene
+    CharacterViewer.js     the Traveler's Mirror (drag to turn, pinch to zoom)
   story/
     storyData.js           lore, barks, chapter cards, world intros
     shopData.js            looks, prices, wish pool, pity and reward rates
@@ -121,8 +123,10 @@ src/
     dialogueData.js        NPCs and conversations
     SecretReveal.js        the reveal sequence and its gate
     FinalEnding.js         the ending sanctuary overlay
-    secretMessage.js       ← the personal page (edit this)
-  styles/                  reset, layout, HUD, dialogue, book, mobile, motion
+    secretMessage.js       the personal page — personalised for Chelsea;
+                           edit PERSONAL there to change names or the date
+  styles/                  reset, layout, HUD, dialogue, book, mobile, motion,
+                           shop (ledger, wishes) and viewer (the mirror)
 scripts/
   smoke-test.mjs           headless logic + world construction tests
   ui-test.mjs              jsdom tests for every interface module
@@ -236,3 +240,28 @@ Prices, the wish pool, rarity weights, pity and reward rates all live in
 The wallet (`state.wallet`) is part of the save: mora, purchases, owned looks,
 worn looks, pity and wish count all survive a reload, and `normalizeWallet()`
 drops anything unknown so a hand-edited save cannot inject a look.
+
+### The pull scene
+
+A wish is not a list that appears: the sky darkens, a star swells overhead,
+falls across the screen trailing light, breaks, and leaves the rarest result of
+the pull inside the burst. The rest of a ten-pull lands underneath it, one card
+at a time.
+
+The scene is purely additive — the ledger's result list is already in the DOM
+behind it, so tapping *Skip* (or tapping anywhere once the star has landed)
+only skips the show, never the result. With **reduced motion** on, the star does
+not fly at all and the results simply appear.
+
+### The Traveler's Mirror
+
+`Pause → Look at the traveler`, or *Look at the traveler up close* in the
+ledger's **Your Look** tab. The world keeps rendering behind the overlay and the
+camera orbits the real model wearing the real look:
+
+* drag to turn her, scroll or pinch to zoom right in to her face;
+* tap **⟳** for a slow idle turn, **◎** to face her again, **− / +** to zoom;
+* the worn look (title, cape, charm, dye, companion) is listed beside her.
+
+On a phone the chase camera itself also zooms now: pinch with two fingers on the
+look area. Jump is buffered and forgiving, so a tap a frame early still jumps.

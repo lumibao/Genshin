@@ -1,0 +1,238 @@
+/* ============================================================
+   THE TRAVELER'S MIRROR
+   A close-up of the character: drag to turn, pinch to zoom.
+   The stage is a transparent drag surface over the live scene, so
+   the world (and the model) keep rendering behind the chrome.
+   ============================================================ */
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 2);
+  pointer-events: none;
+  color: var(--ink, #f3ecdc);
+  animation: viewerFade 0.32s var(--ease-out) both;
+}
+
+.viewer-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+
+.viewer-stage:active {
+  cursor: grabbing;
+}
+
+/* A soft vignette so the chrome reads over the scene. */
+.viewer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(6, 8, 12, 0.72), transparent 22%, transparent 70%, rgba(6, 8, 12, 0.78)),
+    radial-gradient(ellipse at 50% 45%, transparent 42%, rgba(4, 6, 10, 0.5) 100%);
+}
+
+.viewer-head {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+  padding: calc(18px + var(--safe-top)) 20px 0;
+  text-align: center;
+}
+
+.viewer-kicker {
+  margin: 0 0 4px;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: 0.62rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(232, 201, 138, 0.8);
+}
+
+.viewer-title {
+  margin: 0;
+  font-family: var(--font-display, 'Cinzel', serif);
+  font-size: clamp(1.1rem, 4vw, 1.55rem);
+  letter-spacing: 0.08em;
+  color: #fdf6e4;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.65);
+}
+
+.viewer-hint {
+  margin: 6px 0 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: rgba(232, 222, 200, 0.6);
+}
+
+/* ------------------------------ Worn look ------------------------------ */
+
+.viewer-looks {
+  position: absolute;
+  z-index: 2;
+  left: calc(18px + var(--safe-left));
+  bottom: calc(96px + var(--safe-bottom));
+  margin: 0;
+  padding: 12px 14px;
+  min-width: 168px;
+  max-width: min(42vw, 260px);
+  display: grid;
+  gap: 6px;
+  border-radius: 12px;
+  background: rgba(9, 13, 20, 0.62);
+  border: 1px solid rgba(232, 201, 138, 0.2);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.viewer-looks > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.68rem;
+}
+
+.viewer-looks dt {
+  margin: 0;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 201, 138, 0.72);
+  font-size: 0.6rem;
+}
+
+.viewer-looks dd {
+  margin: 0;
+  text-align: right;
+  color: rgba(244, 239, 228, 0.9);
+}
+
+/* ------------------------------ Controls ------------------------------ */
+
+.viewer-controls {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  bottom: calc(20px + var(--safe-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(9, 13, 20, 0.66);
+  border: 1px solid rgba(232, 201, 138, 0.22);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+}
+
+.viewer-btn {
+  display: grid;
+  place-items: center;
+  min-width: 46px;
+  height: 46px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(232, 201, 138, 0.28);
+  background: rgba(20, 27, 38, 0.7);
+  color: var(--gold-bright, #f3dda8);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.2s, background 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.viewer-btn:hover,
+.viewer-btn:focus-visible {
+  border-color: rgba(255, 246, 216, 0.7);
+  color: #fff8e6;
+}
+
+.viewer-btn:active {
+  transform: scale(0.94);
+}
+
+.viewer-btn.is-active {
+  background: rgba(232, 201, 138, 0.24);
+  border-color: rgba(255, 246, 216, 0.85);
+  color: #fffaf0;
+}
+
+.viewer-btn--primary {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0 18px;
+  background: linear-gradient(180deg, rgba(232, 201, 138, 0.9), rgba(196, 160, 96, 0.9));
+  border-color: rgba(255, 246, 216, 0.8);
+  color: #1b1508;
+  font-weight: 600;
+}
+
+/* ------------------------------ Layout ------------------------------ */
+
+@media (max-width: 640px), (max-height: 520px) {
+  .viewer-looks {
+    bottom: calc(84px + var(--safe-bottom));
+    min-width: 0;
+    max-width: 46vw;
+    padding: 9px 11px;
+    gap: 4px;
+  }
+
+  .viewer-looks > div {
+    font-size: 0.62rem;
+  }
+
+  .viewer-controls {
+    gap: 7px;
+    padding: 6px 8px;
+  }
+
+  .viewer-btn {
+    min-width: 44px;
+    height: 44px;
+    padding: 0 10px;
+  }
+
+  .viewer-btn--primary {
+    padding: 0 14px;
+  }
+}
+
+/* Keyboard help for the drag surface, which is not a normal control. */
+.viewer-stage:focus-visible {
+  outline: 2px solid rgba(242, 215, 155, 0.5);
+  outline-offset: -6px;
+}
+
+.is-mirror #mobile-controls,
+.is-mirror #interaction-prompt {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes viewerFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reduced-motion .viewer {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer {
+    animation: none;
+  }
+}

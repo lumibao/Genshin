@@ -248,6 +248,12 @@ export class InputManager {
     this.lookY += dy;
   }
 
+  /** Feed zoom from a gesture (pinch), not just the wheel. */
+  addZoom(delta) {
+    if (!this.enabled) return;
+    this.zoomDelta += delta;
+  }
+
   consumeZoom() {
     const value = this.zoomDelta;
     this.zoomDelta = 0;

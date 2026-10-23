@@ -727,17 +727,36 @@ function makeFlowGame({ level = 1, completed = [], flags = {}, items = {} } = {}
 /* The secret message module                                          */
 /* ------------------------------------------------------------------ */
 
-await test('secretMessage defines clearly marked personal placeholders', async () => {
+await test('the hidden page is personalised for Chelsea and the monthsary', async () => {
   const secret = await import('../src/story/secretMessage.js');
-  assert.ok(secret.PERSONAL.herName.includes('[HER NAME]'));
-  assert.ok(secret.PERSONAL.yourName.includes('[YOUR NAME]'));
-  assert.ok(secret.PERSONAL.specialDate.includes('[SPECIAL DATE]'));
-  assert.equal(secret.hasUnreplacedPlaceholders(), true);
+  assert.equal(secret.PERSONAL.herName, 'Chelsea');
+  assert.match(secret.PERSONAL.yourName, /future husband/i);
+  assert.match(secret.PERSONAL.specialDate, /October 25, 2026/);
+  assert.match(secret.PERSONAL.specialDate, /monthsary/i);
+  assert.equal(secret.hasUnreplacedPlaceholders(), false, 'no [PLACEHOLDERS] may survive into the book');
+
   const pages = secret.buildPages();
   assert.equal(pages.length >= 2, true);
   const filled = secret.fillTokens('For {her}, from {you} on {date}.');
-  assert.ok(filled.includes('[HER NAME]'));
+  assert.ok(filled.includes('Chelsea'));
+  assert.ok(filled.includes('future husband'));
+  assert.ok(filled.includes('October 25, 2026'));
   assert.equal(filled.includes('{her}'), false);
+
+  // Every page must be fully substituted before it reaches the book.
+  const text = pages
+    .map((page) => [
+      secret.fillTokens(page.title),
+      secret.fillTokens(page.subtitle),
+      ...(page.paragraphs || []).map((paragraph) => secret.fillTokens(paragraph.text)),
+      secret.fillTokens(page.signature?.name || ''),
+      secret.fillTokens(page.dateLine || ''),
+    ].join(' '))
+    .join(' ');
+  assert.equal(/\{(her|you|date|message|promise)\}/.test(text), false, 'no raw tokens reach the reader');
+  assert.equal(/\[[A-Z0-9 _-]+\]/.test(text), false, 'no placeholders reach the reader');
+  assert.ok(text.includes('Chelsea'), 'her name is on the page');
+  assert.ok(/monthsary/i.test(text), 'the monthsary is named');
 });
 
 await test('secretMessage chunk is not imported by the initial entry bundle', () => {

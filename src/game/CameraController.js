@@ -18,7 +18,9 @@ export class CameraController {
     this.yaw = Math.PI * 0.15;
     this.pitch = 0.42;
     this.distance = 5.6;
-    this.minDistance = 2.4;
+    // Close enough to actually look at the traveler's face; pinching or the
+    // wheel gets you right up to her shoulder.
+    this.minDistance = 1.5;
     this.maxDistance = 9.5;
     this.targetDistance = this.distance;
     this.followHeight = 1.5;
@@ -32,6 +34,8 @@ export class CameraController {
 
     this.cinematic = null;
     this.orbit = null;
+    // The traveler's mirror: a close, hand-held orbit around the character.
+    this.inspect = null;
     // Scaled down by the "reduced motion" setting: smaller shakes, slower orbit.
     this.cinematicDampScale = 1;
     this._rayTimer = 0;
@@ -77,7 +81,94 @@ export class CameraController {
   }
 
   zoom(delta) {
+    if (this.inspect) {
+      this.inspect.targetDistance = THREE.MathUtils.clamp(
+        this.inspect.targetDistance + delta * 0.85,
+        0.9,
+        4.6,
+      );
+      this.inspect.idle = 0;
+      return;
+    }
     this.targetDistance = THREE.MathUtils.clamp(this.targetDistance + delta, this.minDistance, this.maxDistance);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The traveler's mirror                                            */
+  /* ---------------------------------------------------------------- */
+
+  /** Orbit the character closely. The world keeps rendering behind her. */
+  startInspect({ distance = 2.3 } = {}) {
+    const player = this.game.player;
+    this.cinematic = null;
+    this.orbit = null;
+    this.inspect = {
+      // Start in front of her: the camera sits along her facing direction.
+      yaw: (player?.facing ?? 0) + 0.28,
+      pitch: 0.08,
+      distance,
+      targetDistance: distance,
+      autoSpin: true,
+      idle: 0,
+      smooth: null,
+    };
+    this.applyShake(0);
+  }
+
+  stopInspect() {
+    if (!this.inspect) return;
+    this.inspect = null;
+    this.snapToPlayer();
+  }
+
+  addInspectLook(dx, dy) {
+    if (!this.inspect) return;
+    this.inspect.yaw -= dx;
+    this.inspect.pitch = THREE.MathUtils.clamp(this.inspect.pitch + dy, -0.6, 0.85);
+    this.inspect.idle = 0;
+  }
+
+  setInspectSpin(on) {
+    if (this.inspect) this.inspect.autoSpin = !!on;
+  }
+
+  get inspectSpin() {
+    return this.inspect ? this.inspect.autoSpin : false;
+  }
+
+  updateInspect(dt) {
+    const view = this.inspect;
+    const player = this.game.player;
+    if (!view || !player) return;
+
+    const look = this.game.input.consumeLookDelta?.() || { x: 0, y: 0 };
+    if (look.x || look.y) this.addInspectLook(look.x, look.y);
+    const zoomDelta = this.game.input.consumeZoom?.() ?? 0;
+    if (zoomDelta) this.zoom(zoomDelta);
+
+    view.idle += dt;
+    if (view.autoSpin && view.idle > 3.2) view.yaw += dt * 0.22;
+    view.distance += (view.targetDistance - view.distance) * Math.min(1, dt * 9);
+
+    const targetY = player.position.y + 1.2;
+    _target.set(player.position.x, targetY, player.position.z);
+    if (!view.smooth) view.smooth = _target.clone();
+    view.smooth.lerp(_target, Math.min(1, dt * 10));
+
+    const cosPitch = Math.cos(view.pitch);
+    _dir.set(Math.sin(view.yaw) * cosPitch, Math.sin(view.pitch), Math.cos(view.yaw) * cosPitch);
+    _desired.copy(view.smooth).addScaledVector(_dir, view.distance);
+
+    const ground = this.game.worlds?.getHeightAt(_desired.x, _desired.z);
+    if (Number.isFinite(ground)) _desired.y = Math.max(_desired.y, ground + 0.35);
+
+    const factor = 1 - Math.exp(-dt * 14);
+    this.camera.position.lerp(_desired, factor);
+    this.camera.lookAt(view.smooth);
+    if (Math.abs(this.camera.fov - this.baseFov) > 0.08) {
+      this.camera.fov += (this.baseFov - this.camera.fov) * Math.min(1, dt * 4);
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   snapToPlayer() {
@@ -176,6 +267,12 @@ export class CameraController {
         this.camera.fov += (this.cinematic.fov - this.camera.fov) * Math.min(1, dt * 2.6);
         this.camera.updateProjectionMatrix();
       }
+      this.applyShake(dt);
+      return;
+    }
+
+    if (this.inspect) {
+      this.updateInspect(dt);
       this.applyShake(dt);
       return;
     }

@@ -3,11 +3,11 @@
  *  PROJECT ASTERIA — THE HIDDEN PAGE
  * ============================================================================
  *
- *  ▸ PERSONALISE THIS FILE BEFORE GIVING THE GAME TO HER.  ◂
+ *  ▸ PERSONALISED FOR CHELSEA.  ◂
  *
- *  Replace the bracketed placeholders below with your own words and details.
- *  Everything else in the game is written so that this page can be discovered
- *  as a surprise inside the ancient book in Chapter V.
+ *  The names, the monthsary and the words below are yours; the rest of the
+ *  file is only the frame they sit in. Everything here is written so that this
+ *  page can be discovered as a surprise inside the ancient book in Chapter V.
  *
  *  This module is imported *only* after the reveal gate confirms that:
  *    · Chapter IV is complete            (state.completed includes 4)
@@ -26,27 +26,27 @@
 
 export const PERSONAL = {
   /** Her name, as you say it. */
-  herName: '[HER NAME]',
+  herName: 'Chelsea',
 
   /** Your name, or the name she calls you. */
-  yourName: '[YOUR NAME]',
+  yourName: 'your future husband',
 
   /** A date that matters to the two of you, written however you like. */
-  specialDate: '[SPECIAL DATE]',
+  specialDate: 'Our monthsary · October 25, 2026',
 
   /**
    * Your own words. This paragraph appears in the middle of the page.
    * Write it the way you would say it to her, quietly.
    */
   personalMessage:
-    'I have spent a long time looking for the right way to say this. In the end I decided to build a world for it, because a sentence felt too small to carry it.',
+    'I could have written this on a card, but a card gets lost in a drawer. So I built a whole world instead, and hid the letter at the very end of it — because that is how far I would walk to say something as simple as this: I am glad it is you, Chelsea. On the twenty-fifth of October I get to call you my future wife, and I will keep choosing that, month after month, in this world and in every one after it.',
 
   /**
    * The last promise of the book. Keep it simple. Promises are stronger
    * when they sound like something a person would actually say.
    */
   finalPromise:
-    'Whatever road opens next, I will walk it with you — and if the road ever forgets us, I will find you again and start over, gladly.',
+    'Whatever road opens next, I will walk it with you — and every twenty-fifth, I will find you again, take your hand, and start over, gladly.',
 };
 
 /** Fixed narrative framing around the personal words. */
@@ -58,7 +58,7 @@ export const SECRET_PAGE = {
   inscription:
     'Across every world, through every journey, and beyond every constellation, I would still find my way to you.',
   dedicationKicker: 'The Last Page',
-  dedicationTitle: 'For you, who was always the destination',
+  dedicationTitle: 'For {her}, who was always the destination',
 };
 
 /** Replace {tokens} with the personalised values above. */
@@ -110,6 +110,10 @@ export function buildPages(personal = PERSONAL) {
         {
           text: `So this is the truth I am leaving in the chronicle, ${p.her} — the one that survived every journey: of all the worlds I could have been born into, I am glad it was this one. Of all the people I could have found, I am glad it was you.`,
         },
+        {
+          text: 'The page is dated, because the date matters: {date}. The first of many, and I have already decided to be late for nothing after it.',
+          personal: true,
+        },
       ],
       signature: { small: 'Recorded beneath the archive', name: 'by {you}' },
       dateLine: '{date}',
@@ -120,7 +124,7 @@ export function buildPages(personal = PERSONAL) {
       id: 'dedication',
       kicker: SECRET_PAGE.dedicationKicker,
       title: SECRET_PAGE.dedicationTitle,
-      subtitle: 'The chronicle ends here. The promise does not.',
+      subtitle: 'The chronicle ends here. The promise does not — and it renews every twenty-fifth.',
       devotion: true,
       paragraphs: [
         {
@@ -128,6 +132,10 @@ export function buildPages(personal = PERSONAL) {
         },
         {
           text: 'If you ever doubt where you belong, come back to this page. I will have left it open. I will have left the lamp lit.',
+        },
+        {
+          text: 'Happy monthsary, {her}. One down, and I am already planning the rest.',
+          personal: true,
         },
       ],
       signature: { small: 'Always, in every world', name: '{you}' },

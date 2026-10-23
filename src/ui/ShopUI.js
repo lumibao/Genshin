@@ -5,6 +5,7 @@
  * costs, what the star's rules are, and what is currently worn.
  */
 import { Modal } from './Modal.js';
+import { WishCinematic } from './WishCinematic.js';
 import {
   RARITY,
   PITY_LIMIT,
@@ -33,6 +34,7 @@ export class ShopUI {
   constructor(game) {
     this.game = game;
     this.modal = new Modal(game);
+    this.cinematic = new WishCinematic(game);
     this.tab = 'stock';
   }
 
@@ -43,6 +45,9 @@ export class ShopUI {
   open({ tab = 'stock', returnToPause = false } = {}) {
     if (this.modal.isOpen) this.modal.close({ silent: true });
     this.tab = tab;
+    // Remembered so the mirror that opens from the wardrobe returns to the
+    // same place the ledger was opened from.
+    this._returnToPause = returnToPause;
     this.modal.open({
       title: "The Wanderer's Ledger",
       subtitle: 'A modest shop, and a star that grants small wishes',
@@ -51,6 +56,8 @@ export class ShopUI {
       wide: true,
       className: 'modal--shop',
       onClose: () => {
+        // A wish scene never outlives the ledger it belongs to.
+        this.cinematic.skip();
         this.game.saveNow?.();
         if (returnToPause) this.game.returnToPause?.();
       },
@@ -58,6 +65,7 @@ export class ShopUI {
   }
 
   close() {
+    this.cinematic.skip();
     this.modal.close();
   }
 
@@ -199,14 +207,32 @@ export class ShopUI {
   _renderWish(panel) {
     const wallet = this.shop.wallet;
 
+    const pity = Math.round(((PITY_LIMIT - this.shop.pityRemaining) / PITY_LIMIT) * 100);
+
     const intro = document.createElement('div');
     intro.className = 'shop-wish';
     intro.innerHTML = `
+      <div class="shop-wish-sky" aria-hidden="true">
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <span class="shop-wish-sky-star"></span>
+        <p class="shop-wish-sky-line">The star is listening.</p>
+      </div>
       <p class="shop-note">
-        Offer mora to the wishing star and it answers with a look for the road.
+        Offer mora to the wishing star and it answers with a look for the road:
+        the sky opens, a star falls, and what it leaves behind is yours.
         You will never receive something you already own until you own everything,
         and a legendary is guaranteed within <strong>${PITY_LIMIT}</strong> wishes.
       </p>
+      <div class="shop-pity-track" role="img" aria-label="Legendary guarantee: ${pity}% of the way there">
+        <span class="shop-pity-fill" style="width: ${pity}%"></span>
+        <span class="shop-pity-label">Legendary guarantee</span>
+      </div>
       <div class="shop-wish-actions">
         <button type="button" class="btn btn-primary shop-wish-one">
           Wish once <span class="shop-cost">◈ ${WISH_COST}</span>
@@ -289,6 +315,18 @@ export class ShopUI {
       slot.classList.remove('is-revealing');
       void slot.offsetWidth;
       slot.classList.add('is-revealing');
+      // The list is already in the DOM (so the ledger is never blocked on an
+      // animation); it simply waits for the star to finish falling. The class
+      // goes on *before* play(), because a reduced-motion pull finishes
+      // synchronously.
+      slot.classList.add('is-awaiting-reveal');
+      slot.classList.remove('is-revealed');
+      this.cinematic.play(result.results, {
+        onDone: () => {
+          slot.classList.remove('is-awaiting-reveal');
+          slot.classList.add('is-revealed');
+        },
+      });
     }
 
     // Update the purse and buttons in place — the result list must stay put.
@@ -297,6 +335,12 @@ export class ShopUI {
     if (purse) purse.textContent = String(this.shop.mora);
     const pity = element?.querySelector('.shop-pity');
     if (pity) pity.textContent = `Legendary guaranteed within ${this.shop.pityRemaining} wishes`;
+    const fill = element?.querySelector('.shop-pity-fill');
+    if (fill) {
+      const progress = Math.round(((PITY_LIMIT - this.shop.pityRemaining) / PITY_LIMIT) * 100);
+      fill.style.width = `${progress}%`;
+      fill.parentElement?.setAttribute('aria-label', `Legendary guarantee: ${progress}% of the way there`);
+    }
     const one = element?.querySelector('.shop-wish-one');
     const ten = element?.querySelector('.shop-wish-ten');
     if (one) one.disabled = this.shop.mora < WISH_COST;
@@ -306,11 +350,8 @@ export class ShopUI {
       stats.textContent = `Wishes made: ${this.shop.wallet.wishes} · Looks found: ${this.shop.unlockedCount} of ${this.shop.totalLooks} · Duplicates return ${DUPLICATE_REFUND} mora.`;
     }
 
-    // A pull is worth pausing on: let the atmosphere land before the next click.
-    const best = result.results.reduce((a, b) => (RARITY[b.rarity] === RARITY.legendary ? b : a), result.results[0]);
-    if (best && RARITY[best.rarity]?.label === 'Legendary') {
-      this.game.audio?.play('reveal');
-    }
+    // The reveal sound now belongs to the wish scene, which knows how rare the
+    // result is and when the star actually breaks.
   }
 
   /* ---------------------------------------------------------------- */
@@ -324,6 +365,17 @@ export class ShopUI {
     panel.appendChild(
       this._note('What the world sees when you walk through it. Nothing here changes how you play.'),
     );
+
+    // The wardrobe is where you actually want to look closely at her.
+    const mirror = document.createElement('button');
+    mirror.type = 'button';
+    mirror.className = 'btn btn-ghost shop-mirror';
+    mirror.textContent = 'Look at the traveler up close';
+    mirror.addEventListener('click', () => {
+      this.modal.close({ silent: true });
+      this.game.openCharacterViewer({ returnToPause: this._returnToPause });
+    });
+    panel.appendChild(mirror);
 
     const summary = document.createElement('dl');
     summary.className = 'shop-look-summary';

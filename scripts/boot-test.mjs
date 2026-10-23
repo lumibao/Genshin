@@ -541,6 +541,59 @@ try {
     game.state = saved;
   });
 
+  await test('the mirror opens on the real camera and hands it back on close', async () => {
+    game.start?.(false);
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    game.player.setVisible(true);
+    game.started = true;
+    game.titleMode = false;
+
+    game.openCharacterViewer();
+    assert.equal(game.inspecting, true, 'the mirror is active');
+    assert.ok(game.cameraController.inspect, 'the camera is orbiting her');
+    assert.ok(document.querySelector('.viewer'), 'the mirror layer is on screen');
+    assert.equal(game.isInputBlocked(), true, 'movement is blocked while looking');
+
+    // The camera must actually come in close, not stay at chase distance.
+    for (let i = 0; i < 60; i++) game.update(1 / 60);
+    const head = game.player.position.clone();
+    head.y += 1.2;
+    const distance = game.cameraController.camera.position.distanceTo(head);
+    assert.ok(distance < 3.4, `the mirror gets close (${distance.toFixed(2)})`);
+
+    // Pinch/wheel zoom reaches the inspect camera (negative = closer).
+    game.cameraController.zoom(-0.4);
+    assert.ok(game.cameraController.inspect.targetDistance < 2.3, 'zoom works inside the mirror');
+
+    game.closeCharacterViewer();
+    assert.equal(game.inspecting, false, 'the mirror closes');
+    assert.equal(game.cameraController.inspect, null, 'the chase camera is restored');
+    assert.equal(document.querySelector('.viewer'), null);
+    assert.equal(game.isInputBlocked(), false, 'the player can move again');
+  });
+
+  await test('a real pull plays the wish scene and skipping returns to the ledger', async () => {
+    game.shop.wallet.mora += 200;
+    game.shopUI.open({ tab: 'wish' });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    document.querySelector('#ui-root .shop-wish-one').click();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const scene = document.querySelector('.wish-scene');
+    assert.ok(scene, 'the star falls in the real game too');
+    assert.ok(scene.querySelector('.wish-card-name').textContent.length > 0);
+
+    // The Skip control ends the scene immediately, wherever the star is.
+    scene.querySelector('.wish-skip').click();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal(document.querySelector('.wish-scene'), null, 'the scene clears away');
+
+    const slot = document.querySelector('#ui-root .shop-wish-result');
+    assert.equal(slot.classList.contains('is-awaiting-reveal'), false, 'the results are no longer hidden');
+    game.shopUI.close();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+
   await test('the world loop updates without throwing', async () => {
     for (let i = 0; i < 30; i++) game.update(1 / 60);
     assert.ok(Number.isFinite(game.cameraController.camera.position.x));

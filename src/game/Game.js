@@ -25,6 +25,7 @@ import { HUD } from '../ui/HUD.js';
 import { DialogueUI } from '../ui/DialogueUI.js';
 import { InventoryUI } from '../ui/InventoryUI.js';
 import { ShopUI } from '../ui/ShopUI.js';
+import { CharacterViewer } from '../ui/CharacterViewer.js';
 import { JournalUI } from '../ui/JournalUI.js';
 import { SettingsUI, PauseMenu } from '../ui/SettingsUI.js';
 import { BookUI } from '../ui/BookUI.js';
@@ -124,11 +125,14 @@ export class Game {
     this.journalUI = new JournalUI(this);
     this.settingsUI = new SettingsUI(this);
     this.pauseMenu = new PauseMenu(this);
+    this.characterViewer = new CharacterViewer(this);
     this.cinematics = new Cinematics(this);
     this.bookUI = new BookUI(this);
     this.secretReveal = new SecretReveal(this);
     this.ending = new FinalEnding(this);
     this.modal = new Modal(this);
+    this.inspecting = false;
+    this._viewerReturnToPause = false;
 
     document.body.classList.toggle('reduced-motion', this.settings.reducedMotion);
 
@@ -539,6 +543,17 @@ export class Game {
 
     this._handleGlobalInput();
 
+    if (this.inspecting) {
+      // The mirror keeps the world alive — she still breathes, shifts and
+      // turns — while movement stays blocked.
+      this.cameraController.update(dt);
+      this.player.update(dt, this.elapsed);
+      this.worlds.update(dt, this.elapsed);
+      this.hud.update(dt);
+      this.audio.update(dt);
+      return;
+    }
+
     if (this.paused || this._orientationBlocked) {
       this.cameraController.update(dt * 0.2);
       this.worlds.update(dt * 0.2, this.elapsed);
@@ -623,6 +638,50 @@ export class Game {
       if (this.blockers.size || document.pointerLockElement) return;
       this.openPauseMenu();
     }, 240);
+  }
+
+  /* ================================================================ */
+  /* The traveler's mirror                                            */
+  /* ================================================================ */
+
+  /** Look at the character up close; drag to turn, pinch to zoom. */
+  openCharacterViewer({ returnToPause = false } = {}) {
+    if (!this.started || this.titleMode || this.transitioning) return;
+    if (this.inspecting) return;
+    this.inspecting = true;
+    this._viewerReturnToPause = returnToPause;
+    // Not "paused": the mirror needs the player animation to keep ticking.
+    this.paused = false;
+    document.body.classList.remove('is-paused');
+    this._lockPauseTimer && clearTimeout(this._lockPauseTimer);
+    this._lockPauseTimer = null;
+    this.addBlocker('mirror');
+    this.input.exitPointerLock();
+    this.hud?.setVisible(false);
+    this.cameraController.startInspect();
+    this.characterViewer.open();
+    this.audio?.play('open');
+  }
+
+  closeCharacterViewer() {
+    if (!this.inspecting) return;
+    this.inspecting = false;
+    this.characterViewer.close();
+    this.cameraController.stopInspect();
+    this.removeBlocker('mirror');
+    this.hud?.setVisible(true);
+    this.audio?.play('close');
+    if (this._viewerReturnToPause) {
+      this._viewerReturnToPause = false;
+      this.paused = false;
+      this.openPauseMenu();
+      return;
+    }
+    // The mirror never paused the game, so `resume()` has nothing to undo;
+    // hand the mouse back to the chase camera instead.
+    if (!this.paused && !this.renderer.isMobile && this.blockers.size === 0) {
+      this.input.requestPointerLock();
+    }
   }
 
   openPauseMenu() {
