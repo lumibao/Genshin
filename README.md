@@ -152,6 +152,41 @@ Chapter V itself needs three things in order, all of them marked on the map:
    finishes Chapter IV — then open the celestial stair on the archive's east
    wall. Its runes glow and a beacon marks it once the seal is home.
 
+## The link, the card, and the splash
+
+Sending the URL should already feel like an invitation, so the page dresses
+itself before the engine wakes up.
+
+**The preview card.** `public/og-image.png` (1200×630, plus a `.jpg` copy for
+scrapers that refuse PNG) is what Messenger, WhatsApp, Discord, Telegram and X
+show. The `og:*` and `twitter:*` tags in `index.html` point at **absolute**
+`https://lumibao.github.io/Genshin/game/…` URLs — scrapers do not resolve
+relative paths, and `vite.config.js` builds with `base: './'`.
+
+**The splash.** `#screen-splash` is the first element in `#app`: full-bleed
+artwork, a slow drift, twinkling stars, the title lockup and one door. Its
+critical CSS is inlined in `index.html` *and* strengthened by
+`src/styles/splash.css`, so the painting appears before the bundle parses — and
+even on the source-served page while `src/main.js` redirects to the build.
+
+`src/ui/SplashScreen.js` owns the door. It starts in `is-waiting` with
+"The wind is rising…", and a tap in that state only nudges it (`is-waiting-nudge`);
+nobody is dropped into a half-built world. When `Game.boot()` finishes it calls
+`splash.setReady()`, and `Game._announceSplash()` fills in the truth:
+
+| Visitor | Line | The door does |
+| --- | --- | --- |
+| First time | *Where the wind remembers every name it has carried.* | **Enter the meadow** → title screen |
+| Returning | *Chapter III · The Forgotten Library — your journey is saved, 4 of 6 objectives done.* | **Continue the chronicle** → resumes the save |
+
+A failed boot calls `splash.abort()` *before* `showFatal()`, so an error is never
+hidden behind a painting. `showTitle()` deliberately does **not** dismiss the
+splash — the title screen waits behind it and is simply revealed.
+
+**The artwork.** The master is `art/og-art.png`; the card, the jpg copy and the
+splash art (`public/splash-art.jpg` → `src/assets/splash-art.jpg`, so Vite hashes
+it) are compiled from it. Only the compiled files ship.
+
 ## Mobile
 
 The HUD (satchel, ledger, sound, menu) is a **layer above** the touch controls,
