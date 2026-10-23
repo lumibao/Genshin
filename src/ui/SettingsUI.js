@@ -302,6 +302,10 @@ export class PauseMenu {
     addAction('Controls', () => {
       this._openPanel(() => this.game.settingsUI.showControls({ returnToPause: true }));
     });
+    addAction('Where the chronicle continues', () => {
+      this.modal.close();
+      this.game.resumeChronicle?.();
+    });
     addAction('Return to safe point', () => {
       this.modal.close();
       this.game.returnToSafePoint();

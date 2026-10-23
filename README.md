@@ -132,6 +132,31 @@ public/assets/             reserved names for future art; currently unused
 
 ---
 
+## Getting unstuck
+
+The pause menu has **Where the chronicle continues**. It reads the save and
+offers the next gate the progress rules already allow — the observatory while
+Chapter IV is unfinished, the archive while the seal's return trip is pending,
+the library once Chapter IV is complete. It never skips a chapter; it only
+removes the "I don't know where to go" dead end.
+
+Chapter V itself needs three things in order, all of them marked on the map:
+
+1. Light the three star mechanisms, then trace the pylons in the sky's order.
+2. Claim the seal that forms above the lens (stand just outside the lens ring).
+3. Touch the observatory waystone to return — the *return* trip is what
+   finishes Chapter IV — then open the celestial stair on the archive's east
+   wall. Its runes glow and a beacon marks it once the seal is home.
+
+## Mobile
+
+The HUD (satchel, ledger, sound, menu) is a **layer above** the touch controls,
+and its buttons are 44 px targets on touch devices. The full-height look area
+sits underneath the HUD, so a swipe that starts on a button never steals the tap
+and a swipe on open ground still turns the camera. The interaction prompt is
+tappable as well, so a player with both thumbs on the controls can still
+interact.
+
 ## Tests
 
 ```bash
@@ -150,6 +175,8 @@ npm run test:boot
 * **boot** starts the actual `Game` object with a headless renderer: it boots
   to the title screen, begins an adventure, completes Chapter I, travels,
   pauses, opens every panel, returns to the title and continues from the save.
+  It then walks a second, independent save through Chapters I–V end to end and
+  checks that the rescue route points where that walk actually ended up.
 
 The suites do not test WebGL rendering or shader compilation — that needs a
 real browser.
@@ -161,6 +188,13 @@ real browser.
 * **No external assets.** Textures are drawn to canvases at load time; music and
   ambience are scheduled oscillators and filtered noise. The game works offline
   after the first load.
+* **The traveler is stylised, not smooth.** The avatar is primitive-built but
+  cel-shaded: a 4-step `MeshToonMaterial` ramp, inverted-hull outlines on the
+  silhouette pieces, a large head with banded irises, layered hair with a
+  three-segment ponytail, and a layered outfit (mantle, bodice, flared skirt,
+  thigh boots, sash and a Vision-like gem). Every piece a look repaints is kept
+  on `materials.accent` / `materials.accentDeep` / `capeMaterial` /
+  `charmMaterial`, so the shop still works unchanged.
 * **Quality tiers.** `auto` lowers the render scale when frame time rises;
   Settings also offers `high` and `performance`.
 * **Accessibility.** Reduced motion calms camera shake and slows the orbit,

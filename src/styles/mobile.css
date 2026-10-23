@@ -3,10 +3,17 @@
    Virtual joystick, look area, touch buttons, touch layout tweaks.
    ============================================================ */
 
+/*
+ * Sits *below* the HUD on purpose. It used to be one layer above, and the
+ * full-height look area (#touch-look) swallowed every tap aimed at the HUD
+ * buttons — shop, sound and menu were unreachable on a phone. The HUD is
+ * transparent to taps except for its own buttons, so the joystick and the
+ * action buttons still receive everything that lands on them.
+ */
 #mobile-controls {
   position: absolute;
   inset: 0;
-  z-index: calc(var(--z-hud) + 1);
+  z-index: 9;
   pointer-events: none;
 }
 
@@ -23,6 +30,7 @@
   left: 42%;
   touch-action: none;
   z-index: 0;
+  pointer-events: auto;
 }
 
 .look-hint {
@@ -184,9 +192,21 @@
   width: 78px;
 }
 
+.is-touch .hud-actions {
+  gap: 8px;
+}
+
+/* Comfortable thumb targets: 44px is the smallest reliably tappable size. */
 .is-touch .icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(8, 13, 21, 0.72);
+}
+
+.is-touch .icon-btn svg {
+  width: 21px;
+  height: 21px;
 }
 
 .is-touch .chapter-badge {
@@ -254,8 +274,12 @@
   }
 
   .is-touch .icon-btn {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .is-touch .hud-actions {
+    gap: 6px;
   }
 
   .is-touch #quest-tracker {

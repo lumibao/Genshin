@@ -763,6 +763,41 @@ await test('the wishing star spends mora and lists every result with its rarity'
   shopUI.close();
 });
 
+await test('on a phone the HUD buttons sit above the touch layer and are thumb-sized', async () => {
+  const hudCss = readFileSync(new URL('../src/styles/hud.css', import.meta.url), 'utf8');
+  const mobileCss = readFileSync(new URL('../src/styles/mobile.css', import.meta.url), 'utf8');
+  const mainCss = readFileSync(new URL('../src/styles/main.css', import.meta.url), 'utf8');
+  const shopCss = readFileSync(new URL('../src/styles/shop.css', import.meta.url), 'utf8');
+
+  const tokenZ = Number(mainCss.match(/--z-hud:\s*(\d+)/)?.[1]);
+  const controlsZ = Number(mobileCss.match(/#mobile-controls\s*{[^}]*z-index:\s*(\d+)/s)?.[1]);
+  assert.ok(Number.isFinite(tokenZ) && Number.isFinite(controlsZ), 'both layers declare a z-index');
+  assert.ok(
+    controlsZ < tokenZ,
+    `the touch layer (z ${controlsZ}) must sit under the HUD (z ${tokenZ}) or it swallows taps on the shop, sound and menu buttons`,
+  );
+
+  // The HUD starts transparent to pointers but its buttons must opt back in.
+  assert.ok(
+    /#hud\s*{[^}]*pointer-events:\s*none/s.test(hudCss),
+    'the HUD itself never blocks the world',
+  );
+  assert.ok(
+    /#hud button[^{]*{[^}]*pointer-events:\s*auto/s.test(hudCss),
+    'HUD buttons receive taps',
+  );
+
+  // Thumb-sized targets on touch devices.
+  const touchIcon = mobileCss.match(/\.is-touch \.icon-btn\s*{([^}]*)}/s)?.[1] || '';
+  const width = Number(touchIcon.match(/width:\s*(\d+)px/)?.[1]);
+  const height = Number(touchIcon.match(/height:\s*(\d+)px/)?.[1]);
+  assert.ok(width >= 40 && height >= 40, `touch HUD buttons are ${width}x${height}, expected at least 40x40`);
+
+  // The ledger is usable on a phone too.
+  assert.ok(/\.is-touch \.shop-buy[^{]*{[^}]*min-height:\s*44px/s.test(shopCss), 'shop buttons are 44px tall on touch');
+  assert.ok(/\.is-touch \.shop-tab\s*{[^}]*padding:\s*12px/s.test(shopCss), 'shop tabs are comfortable to tap');
+});
+
 console.log(results.join('\n'));
 console.log(`\n${passed} passed, ${failed} failed\n`);
 if (failed > 0) process.exit(1);

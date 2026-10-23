@@ -185,6 +185,7 @@ export const LEVELS = {
         id: 'return',
         text: 'Return to the sealed archive',
         progress: (ctx) => (ctx.flags.L4_returned ? 1 : 0),
+        hint: 'Touch the waystone at the edge of the observatory deck. The stair to Chapter V opens in the archive it leads back to.',
       },
     ],
   },

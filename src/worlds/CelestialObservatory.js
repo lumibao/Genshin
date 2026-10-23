@@ -419,12 +419,15 @@ export class CelestialObservatory extends BaseWorld {
     this.group.add(sealLight);
     this._sealLight = sealLight;
 
+    // The lens deck is skirted by a 2.6 collider, so a walking player stands
+    // about 3.02 from the centre. A 3.0 radius put the prompt a few centimetres
+    // out of reach — the seal existed but could not be claimed on foot.
     this.addInteractable({
       id: 'celestial-seal',
       x: 0,
       z: 0,
       y: 2.4,
-      radius: 3.0,
+      radius: 3.8,
       prompt: 'Claim the final seal fragment',
       glyph: '☾',
       action: () => this._claimSeal(),

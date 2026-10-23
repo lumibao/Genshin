@@ -507,3 +507,45 @@
     justify-content: center;
   }
 }
+
+/* ------------------------------ Touch ------------------------------ */
+
+/* Every tappable thing in the ledger gets a thumb-sized target. */
+.is-touch .shop-tab {
+  padding: 12px 14px;
+  font-size: 0.72rem;
+}
+
+.is-touch .shop-buy,
+.is-touch .shop-wish-actions .btn,
+.is-touch .shop-owned-item,
+.is-touch .shop-reset-look {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+}
+
+.is-touch .shop-owned-item {
+  flex: 1 1 45%;
+}
+
+.is-touch .shop-header {
+  padding: 12px 14px;
+}
+
+.is-touch .shop-purse {
+  font-size: 1.1rem;
+}
+
+@media (max-height: 520px) {
+  .modal.modal--shop {
+    width: min(94vw, 900px);
+    max-height: 92vh;
+  }
+
+  .shop-panel {
+    min-height: 0;
+  }
+}

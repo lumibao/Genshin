@@ -19,6 +19,8 @@
 
 #hud.is-dimmed {
   opacity: 0;
+  /* An invisible HUD must not eat taps either. */
+  pointer-events: none;
 }
 
 #hud > * {
@@ -27,7 +29,9 @@
 
 #hud button,
 #hud .hud-actions,
-#hud .minimap-shell {
+#hud .minimap-shell,
+/* The interaction prompt is tappable: on a phone it is the natural "E" key. */
+#hud #interaction-prompt {
   pointer-events: auto;
 }
 
@@ -253,6 +257,9 @@
   place-items: center;
   width: 36px;
   height: 36px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
   border: 1px solid rgba(232, 201, 138, 0.24);
   background: rgba(8, 13, 21, 0.62);
   color: rgba(244, 237, 221, 0.78);
@@ -285,6 +292,9 @@
 
 #interaction-prompt {
   position: absolute;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   left: 50%;
   bottom: clamp(14vh, 18vh, 22vh);
   transform: translateX(-50%);

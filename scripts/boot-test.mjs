@@ -412,6 +412,135 @@ try {
     assert.equal(game.hud.root.classList.contains('is-dimmed'), false);
   });
 
+  await test('the whole chronicle can be walked from Chapter I to Chapter V', async () => {
+    // A second, independent Game so this walkthrough cannot disturb the save
+    // the earlier tests built up.
+    const walk = new Game({ rendererFactory: makeRenderer });
+    await walk.boot();
+    fastForward(walk);
+    await walk.startNewGame();
+    // Headless players never walk, so give the story its first-steps flag.
+    walk.bus.emit('player:first-steps');
+
+    const here = () => walk.worlds.current;
+    const interact = async (id) => {
+      const item = here().interactables.find((entry) => entry.id === id);
+      assert.ok(item, `${here().id || 'world'} is missing the interactable ${id}`);
+      try {
+        await item.action();
+      } catch (err) {
+        console.error(
+          `[walk] ${id} threw in ${here()?.constructor?.name} (current ${walk.worlds.currentId}, stairRune ${!!here()?._stairRune})`,
+        );
+        throw err;
+      }
+    };
+    const go = async (world, spawn, level) => {
+      const moved = await walk.travelToWorld(world, spawn, { level, bypassGate: true });
+      assert.equal(moved, true, `could not travel to ${world}`);
+    };
+    // World doors start their travel from inside the interaction, which is not
+    // awaited, so wait for the swap instead of assuming it finished.
+    const waitForWorld = async (id) => {
+      const started = Date.now();
+      while (walk.worlds.currentId !== id) {
+        if (Date.now() - started > 8000) break;
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+      assert.equal(walk.worlds.currentId, id, `did not arrive in ${id}`);
+    };
+
+    /* Chapter I — gather the fragments and report to Wren. */
+    for (const id of ['wren', 'fragment-0', 'fragment-1', 'fragment-2', 'chest', 'wren']) await interact(id);
+    assert.deepEqual(walk.state.completed, [1], 'chapter I completes');
+
+    /* Chapter II — woods, then the ruins mechanism puzzle. */
+    await go('whisperingWoods', 'default', 2);
+    await go('ancientRuins', 'fromWoods', 2);
+    await interact('mural');
+    // Reading the mural opens a lore modal, which blocks input until closed.
+    walk.modal.close();
+    for (const id of ['mechanism-east', 'mechanism-north', 'mechanism-south', 'ruin-fragment']) await interact(id);
+    assert.deepEqual(walk.state.completed, [1, 2], 'chapter II completes');
+
+    /* Chapter III — the archive. */
+    await go('archive', 'default', 3);
+    for (const id of ['page-moon', 'page-star', 'page-wind', 'pedestal-moon', 'pedestal-star', 'pedestal-wind', 'chronicle']) {
+      await interact(id);
+    }
+    assert.deepEqual(walk.state.completed, [1, 2, 3], 'chapter III completes');
+
+    /* Chapter IV — the observatory, its constellation and the seal. */
+    await go('observatory', 'default', 4);
+    for (let i = 0; i < 3; i++) await interact(`star-mechanism-${i}`);
+    for (const index of [0, 2, 1, 3]) await interact(`star-pylon-${index}`);
+    assert.equal(walk.state.flags.L4_constellationSolved, true, 'the constellation can be traced');
+
+    // The seal sits behind the lens collider: stand where a player would stand
+    // and prove the prompt is offered from there.
+    const sealPrompt = (z) => {
+      walk.player.setVisible(true);
+      walk.player.teleport(0, z, Math.PI);
+      walk.interactions.refresh();
+      walk.interactions.update(1 / 60);
+      return walk.interactions.nearest?.id;
+    };
+    assert.equal(sealPrompt(3.05), 'celestial-seal', 'the seal is claimable from the deck');
+    await interact('celestial-seal');
+    assert.equal(walk.state.flags.L4_seal, true, 'the seal is claimed');
+
+    /* Back through the archive: this is what completes Chapter IV. */
+    await interact('return-archive');
+    await waitForWorld('archive');
+    assert.equal(walk.state.flags.L4_returned, true, 'the return is recorded');
+    assert.deepEqual(walk.state.completed, [1, 2, 3, 4], 'chapter IV completes on return');
+
+    /* Chapter V — the gate that used to feel unreachable. */
+    assert.equal(walk.levels.canTravelTo('hiddenLibrary').ok, true, 'the library gate is open');
+    await interact('hidden-library-door');
+    await waitForWorld('hiddenLibrary');
+    assert.equal(walk.state.flags.L5_entered, true);
+    assert.equal(walk.state.level, 5);
+
+    // And the rescue route agrees with where the walk actually ended up.
+    const { nextDestination } = await import('../src/game/Progression.js');
+    assert.equal(nextDestination(walk.state).world, 'hiddenLibrary');
+
+    if (walk._loopHandle) cancelAnimationFrame(walk._loopHandle);
+    walk._loopHandle = null;
+    walk.saveManager.flush();
+  });
+
+  await test('the pause menu can put a lost player back where the story continues', async () => {
+    // Pretend the save stopped after the observatory's seal, before the return.
+    const saved = { ...game.state };
+    game.state = {
+      ...game.state,
+      level: 4,
+      completed: [1, 2, 3],
+      discoveredPage: false,
+      endingSeen: false,
+      flags: { ...game.state.flags, L4_seal: false, L4_returned: false, L5_entered: false },
+    };
+    fastForward(game);
+    const moved = await game.resumeChronicle({ silent: true });
+    assert.equal(
+      moved,
+      true,
+      `the rescue route travels (world ${game.worlds.currentId}, transitioning ${game.transitioning}, started ${game.started}, blockers ${[...game.blockers].join(',')})`,
+    );
+    assert.equal(game.worlds.currentId, 'observatory');
+
+    const labels = (() => {
+      game.openPauseMenu();
+      return [...document.querySelectorAll('#ui-root .pause-actions .btn')].map((b) => b.textContent);
+    })();
+    assert.ok(labels.some((label) => label.includes('chronicle continues')), 'the pause menu offers the way forward');
+    game.pauseMenu.modal.close();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    game.state = saved;
+  });
+
   await test('the world loop updates without throwing', async () => {
     for (let i = 0; i < 30; i++) game.update(1 / 60);
     assert.ok(Number.isFinite(game.cameraController.camera.position.x));
