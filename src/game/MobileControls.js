@@ -96,17 +96,33 @@ export class MobileControls {
 
     const bindButton = (element, action) => {
       if (!element) return;
+      let lastPress = -Infinity;
+      // Some mobile browsers deliver touchstart without a usable pointerdown
+      // (older WebViews, or when a parent swallows the pointer). Listen to all
+      // three and de-duplicate so one tap is exactly one action.
       const press = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+        const now = performance.now();
+        if (now - lastPress < 60) return;
+        lastPress = now;
+        event.preventDefault?.();
+        event.stopPropagation?.();
         element.classList.add('is-pressed');
         this.input.trigger(action);
+        try {
+          navigator.vibrate?.(8);
+        } catch {
+          /* ignore */
+        }
       };
       const release = () => element.classList.remove('is-pressed');
-      element.addEventListener('pointerdown', press);
+      element.addEventListener('pointerdown', press, { passive: false });
+      element.addEventListener('touchstart', press, { passive: false });
+      element.addEventListener('click', press);
       element.addEventListener('pointerup', release);
+      element.addEventListener('touchend', release);
       element.addEventListener('pointercancel', release);
       element.addEventListener('pointerleave', release);
+      element.addEventListener('contextmenu', (event) => event.preventDefault());
     };
     bindButton(this.interactBtn, 'interact');
     bindButton(this.jumpBtn, 'jump');

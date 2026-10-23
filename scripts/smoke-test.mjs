@@ -1007,7 +1007,7 @@ await test('the ruins puzzle has three mechanisms, a compass, and no fourth pill
 
 const { nextDestination } = await import('../src/game/Progression.js');
 
-await test('every interactable can be reached from outside its own collider', async () => {
+await test('every interactable can be reached from outside its own colliders', async () => {
   const worldsToAudit = [
     ['MondstadtWorld', worlds.MondstadtWorld, 1],
     ['WhisperingWoods', worlds.WhisperingWoods, 2],
@@ -1016,6 +1016,7 @@ await test('every interactable can be reached from outside its own collider', as
     ['CelestialObservatory', worlds.CelestialObservatory, 4],
     ['HiddenLibrary', worlds.HiddenLibrary, 5],
   ];
+  const PLAYER_RADIUS = 0.42;
 
   for (const [name, WorldClass, level] of worldsToAudit) {
     const game = makeMockGame();
@@ -1025,33 +1026,80 @@ await test('every interactable can be reached from outside its own collider', as
     for (const item of world.interactables) {
       const p = item.position || {};
       const radius = item.radius || 2.4;
-      let standOff = Infinity;
+
+      // How far outside the geometry must a player stand to touch this point?
+      // The binding constraint is the *outermost* collider that contains it;
+      // a small pedestal inside a larger dais ring cannot be reached through
+      // the ring, which is exactly the bug this test exists to catch.
+      let required = 0;
       for (const c of world.colliders) {
-        let clearance;
+        let inside = false;
+        let toEdge = 0;
         if (c.type === 'circle') {
           const d = Math.hypot(p.x - c.x, p.z - c.z);
-          if (d > c.r + 1.2) continue;
-          // Player radius is 0.42; the closest the player can stand.
-          clearance = Math.max(0.42, c.r + 0.42 - d);
+          inside = d < c.r;
+          toEdge = c.r - d;
         } else {
           const dx = Math.abs(p.x - c.x);
           const dz = Math.abs(p.z - c.z);
-          if (dx > c.halfW + 1.2 || dz > c.halfD + 1.2) continue;
-          clearance =
-            dx < c.halfW && dz < c.halfD
-              ? Math.min(c.halfW - dx, c.halfD - dz) + 0.42
-              : 0.42;
+          inside = dx < c.halfW && dz < c.halfD;
+          toEdge = Math.min(c.halfW - dx, c.halfD - dz);
         }
-        standOff = Math.min(standOff, clearance);
+        if (inside) required = Math.max(required, toEdge + PLAYER_RADIUS);
       }
-      if (Number.isFinite(standOff)) {
-        assert.ok(
-          radius >= standOff + 0.2,
-          `${name}: "${item.id}" has radius ${radius} but a player can only stand ${standOff.toFixed(2)} away`,
-        );
-      }
+
+      assert.ok(
+        radius >= required + 0.2,
+        `${name}: "${item.id}" can only be reached from ${required.toFixed(2)} away, but its radius is ${radius}`,
+      );
     }
   }
+});
+
+await test('a player can physically walk from the library door to the chronicle', async () => {
+  // Regression for the Chapter V dead end: the dais used to be a solid 4.5
+  // radius wall, so the pedestal stayed 4.92 away and the book could never be
+  // opened on foot. Walk the real controller over the real collision set.
+  const game = makeMockGame({ level: 5 });
+  game.state.flags = {};
+  game.worlds = { getHeightAt: () => 0 };
+  const world = new worlds.HiddenLibrary({ game, level: 5 });
+  await world.build();
+
+  const collision = new CollisionSystem();
+  collision.setColliders(world.colliders, world.bounds);
+  game.collision = collision;
+  game.cameraController = {
+    getForward: () => ({ x: 0, z: -1 }),
+    getRight: () => ({ x: 1, z: 0 }),
+    snapToPlayer: () => {},
+  };
+  game.input = {
+    getMoveVector: () => ({ x: 0, y: 1 }),
+    isDown: () => false,
+    consumePress: () => false,
+    endFrame: () => {},
+  };
+  game.worlds.getHeightAt = (x, z) => world.heightAt(x, z);
+
+  const player = new PlayerController(game);
+  game.player = player;
+  player.setVisible(true);
+  player.teleport(0, 13, Math.PI);
+
+  const book = world.interactables.find((i) => i.id === 'unwritten-chronicle');
+  for (let step = 0; step < 600; step++) {
+    player.update(1 / 60, step / 60);
+    world.update(1 / 60, step / 60);
+  }
+
+  const distance = Math.hypot(player.position.x - book.position.x, player.position.z - book.position.z);
+  assert.ok(
+    distance < book.radius,
+    `the traveler stalled ${distance.toFixed(2)} from the chronicle (radius ${book.radius})`,
+  );
+  assert.ok(distance < 3.2, `walked into the pedestal: stopped ${distance.toFixed(2)} away`);
+  assert.ok(world.heightAt(0, -6) > 0.2, 'the dais lifts the player instead of blocking them');
 });
 
 await test('the ruins survive a chapter-complete event at any build stage', async () => {
