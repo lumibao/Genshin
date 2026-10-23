@@ -33,7 +33,7 @@ import { Modal } from '../ui/Modal.js';
 import { SecretReveal } from '../story/SecretReveal.js';
 import { FinalEnding } from '../story/FinalEnding.js';
 import { INTRO_NARRATION, LORE, BARKS } from '../story/storyData.js';
-import { canEnterEnding } from './Progression.js';
+import { canEnterEnding, nextDestination } from './Progression.js';
 
 const MAX_DT = 0.05;
 
@@ -446,6 +446,16 @@ export class Game {
   async travelToWorld(worldId, spawnId = 'default', { level = null, bypassGate = false } = {}) {
     if (this.transitioning) return false;
 
+    // A world load can still be unwinding from an earlier jump (or from the
+    // queue WorldManager keeps). Travelling into that returns null and the
+    // journey silently does nothing, so wait for the manager to be free first.
+    if (this.worlds?.loading) {
+      const started = Date.now();
+      while (this.worlds.loading && Date.now() - started < 4000) {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+      }
+    }
+
     // The world's own waystones route through LevelManager, which checks the
     // gate with a specific message. Callers that legitimately skip it (the
     // ending, the title screen) pass bypassGate.
@@ -695,6 +705,35 @@ export class Game {
     this.resume();
   }
 
+  /**
+   * Travel to wherever the chronicle continues. Used by the pause menu, so a
+   * player who is stuck between chapters always has a way forward that never
+   * skips a gate the progress rules would refuse.
+   */
+  async resumeChronicle({ silent = false } = {}) {
+    if (!this.started || this.titleMode) return false;
+    const destination = nextDestination(this.state);
+    if (!destination) return false;
+    if (this.worlds.currentId === destination.world) {
+      if (!silent) this.toast('You are already where the chronicle continues.', 'hint');
+      return false;
+    }
+    this.resume();
+    const moved = await this.travelToWorld(destination.world, destination.spawn, {
+      level: destination.level,
+      bypassGate: true,
+    });
+    if (moved && !silent) {
+      this.hud?.toast({
+        icon: '✦',
+        kicker: 'The chronicle continues',
+        text: destination.label,
+        variant: 'quest',
+      });
+    }
+    return moved;
+  }
+
   async requestFullscreen() {
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
@@ -844,7 +883,13 @@ export class Game {
 
   async _onLevelComplete(levelId) {
     if (!this.started) return;
-    this.levels.onLevelComplete(levelId);
+    try {
+      this.levels.onLevelComplete(levelId);
+    } catch (err) {
+      // A world's own completion flourish must never take the chapter card,
+      // the reward or the save down with it.
+      console.error('[Chapter] world completion failed', err);
+    }
     this.audio.play('chapter');
     this.cinematics.completeChapter(levelId).catch(() => {});
 

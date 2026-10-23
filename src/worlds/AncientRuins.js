@@ -606,7 +606,9 @@ export class AncientRuins extends BaseWorld {
     stairRune.position.set(0, 0.2, -27.5);
     this.group.add(stairRune);
     this.addUpdate(stairRune.userData.update);
+    // createRuneCircle returns a Group; the glowing disc is its first child.
     this._stairRune = stairRune;
+    this._stairRuneDisc = stairRune.children[0] || null;
 
     this._stairInteractable = this.addInteractable({
       id: 'archive-stair',
@@ -659,7 +661,7 @@ export class AncientRuins extends BaseWorld {
     this._openGate();
     this.gateGroup.position.y = 4.4;
     this.game.hud.hidePuzzlePanel?.();
-    this._stairRune.material.opacity = this.game.state.completed.includes(2) ? 0.7 : 0.35;
+    this.setStairRuneOpacity(this.game.state.completed.includes(2) ? 0.7 : 0.35);
   }
 
   _buildDetails() {
@@ -702,9 +704,15 @@ export class AncientRuins extends BaseWorld {
     this.addUpdate(motes.userData.update);
   }
 
+  /** Safe to call before the stair exists: it simply does nothing. */
+  setStairRuneOpacity(value) {
+    const material = this._stairRuneDisc?.material;
+    if (material) material.opacity = value;
+  }
+
   onLevelComplete(levelId) {
     if (levelId !== 2) return;
-    this._stairRune.material.opacity = 0.7;
+    this.setStairRuneOpacity(0.7);
     this.game.hud.toast({
       icon: '↓',
       kicker: 'Path Opened',

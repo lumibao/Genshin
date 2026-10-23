@@ -1002,6 +1002,121 @@ await test('the ruins puzzle has three mechanisms, a compass, and no fourth pill
 });
 
 /* ------------------------------------------------------------------ */
+/* Reachability, the chapter rescue route and the cel-shaded traveler  */
+/* ------------------------------------------------------------------ */
+
+const { nextDestination } = await import('../src/game/Progression.js');
+
+await test('every interactable can be reached from outside its own collider', async () => {
+  const worldsToAudit = [
+    ['MondstadtWorld', worlds.MondstadtWorld, 1],
+    ['WhisperingWoods', worlds.WhisperingWoods, 2],
+    ['AncientRuins', worlds.AncientRuins, 2],
+    ['SealedArchive', worlds.SealedArchive, 3],
+    ['CelestialObservatory', worlds.CelestialObservatory, 4],
+    ['HiddenLibrary', worlds.HiddenLibrary, 5],
+  ];
+
+  for (const [name, WorldClass, level] of worldsToAudit) {
+    const game = makeMockGame();
+    const world = new WorldClass({ game, level });
+    await world.build();
+
+    for (const item of world.interactables) {
+      const p = item.position || {};
+      const radius = item.radius || 2.4;
+      let standOff = Infinity;
+      for (const c of world.colliders) {
+        let clearance;
+        if (c.type === 'circle') {
+          const d = Math.hypot(p.x - c.x, p.z - c.z);
+          if (d > c.r + 1.2) continue;
+          // Player radius is 0.42; the closest the player can stand.
+          clearance = Math.max(0.42, c.r + 0.42 - d);
+        } else {
+          const dx = Math.abs(p.x - c.x);
+          const dz = Math.abs(p.z - c.z);
+          if (dx > c.halfW + 1.2 || dz > c.halfD + 1.2) continue;
+          clearance =
+            dx < c.halfW && dz < c.halfD
+              ? Math.min(c.halfW - dx, c.halfD - dz) + 0.42
+              : 0.42;
+        }
+        standOff = Math.min(standOff, clearance);
+      }
+      if (Number.isFinite(standOff)) {
+        assert.ok(
+          radius >= standOff + 0.2,
+          `${name}: "${item.id}" has radius ${radius} but a player can only stand ${standOff.toFixed(2)} away`,
+        );
+      }
+    }
+  }
+});
+
+await test('the ruins survive a chapter-complete event at any build stage', async () => {
+  const game = makeMockGame();
+  const world = new worlds.AncientRuins({ game, level: 2 });
+  // Fired before build(): the rune does not exist yet, and that must be safe.
+  world.onLevelComplete(2);
+  await world.build();
+  world.onLevelComplete(2);
+  assert.ok(world._stairRuneDisc, 'the stair rune disc is remembered, not its group');
+  assert.equal(world._stairRuneDisc.material.opacity, 0.7);
+});
+
+await test('the rescue route always points at the next reachable chapter', () => {
+  const base = () => ({ ...createNewState(), started: true });
+
+  const fresh = base();
+  assert.equal(nextDestination(fresh).world, 'mondstadt');
+
+  const afterOne = { ...base(), completed: [1], level: 2 };
+  assert.equal(nextDestination(afterOne).world, 'ancientRuins');
+
+  const afterThree = { ...base(), completed: [1, 2, 3], level: 4 };
+  assert.equal(nextDestination(afterThree).world, 'observatory');
+
+  const sealInHand = { ...base(), completed: [1, 2, 3, 4], level: 4, flags: { L4_seal: true } };
+  assert.equal(nextDestination(sealInHand).world, 'archive', 'the return trip completes chapter IV');
+
+  const returned = { ...base(), completed: [1, 2, 3, 4], level: 5, flags: { L4_seal: true, L4_returned: true } };
+  assert.equal(nextDestination(returned).world, 'hiddenLibrary');
+
+  const revealed = { ...base(), completed: [1, 2, 3, 4], level: 5, discoveredPage: true };
+  assert.equal(nextDestination(revealed).world, 'hiddenLibrary');
+});
+
+await test('the traveler is cel-shaded, outlined and still fully re-paintable', () => {
+  const game = makeMockGame();
+  const player = new PlayerController(game);
+
+  const toonMaterials = [];
+  const outlines = [];
+  player.model.traverse((obj) => {
+    if (!obj.isMesh) return;
+    if (obj.userData.isOutline) outlines.push(obj);
+    else if (obj.material?.isMeshToonMaterial) toonMaterials.push(obj.material);
+  });
+
+  assert.ok(toonMaterials.length > 10, 'the body uses toon materials');
+  assert.ok(outlines.length > 5, 'the silhouette has inverted-hull outlines');
+  assert.ok(player._gradientMap, 'a shared gradient ramp bands the shading');
+
+  // Anime face furniture.
+  assert.ok(player.eyes?.children.length === 2, 'two eyes');
+  // The ponytail is a chain: segment one holds two nested segments plus the tie.
+  const nest = player.ponytail?.children?.find((child) => child.isGroup);
+  assert.ok(nest, 'the ponytail hangs from a joint that can swing');
+  assert.ok(nest.children.some((child) => child.isGroup), 'the chain keeps nesting so it can flutter');
+
+  // Looks still reach the exact materials the shop writes to.
+  player.applyLooks({ dye: { color: '#2f5f9c', deep: '#1d3d68' }, cape: { color: '#8f4436' } });
+  assert.equal(player.materials.accent.color.getHexString(), '2f5f9c');
+  assert.equal(player.capeMaterial.color.getHexString(), '8f4436');
+});
+
+/* ------------------------------------------------------------------ */
 /* Report                                                             */
 /* ------------------------------------------------------------------ */
 

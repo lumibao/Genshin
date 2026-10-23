@@ -116,6 +116,45 @@ export function canEnterEnding(state) {
   return state.discoveredPage === true && state.flags?.L5_messageRead === true;
 }
 
+/**
+ * Where the chronicle continues from the current save.
+ *
+ * This is the escape hatch for a player who is lost between chapters (or whose
+ * save stopped on a step that has no visible marker). It only ever points at a
+ * gate the progress rules already allow, so it cannot skip the story:
+ *   - chapter IV unfinished          → the observatory
+ *   - seal claimed, return pending   → the archive (which completes chapter IV)
+ *   - chapter IV done, page unread   → the library below the archive
+ */
+export function nextDestination(state) {
+  if (!state) return null;
+  const flags = state.flags || {};
+  const level = Number.isInteger(state.level) ? state.level : 1;
+
+  if (state.discoveredPage === true || isLevelCompleted(state, 5)) {
+    return { world: 'hiddenLibrary', level: 5, spawn: 'default', label: 'The Forgotten Library' };
+  }
+  if (isLevelCompleted(state, 4)) {
+    if (!flags.L4_seal) {
+      return { world: 'observatory', level: 4, spawn: 'default', label: 'The Observatory Above the Clouds' };
+    }
+    if (!flags.L4_returned) {
+      return { world: 'archive', level: 4, spawn: 'fromObservatory', label: 'The Sealed Archive' };
+    }
+    return { world: 'hiddenLibrary', level: 5, spawn: 'default', label: 'The Forgotten Library' };
+  }
+  if (isLevelCompleted(state, 3) || level >= 4) {
+    return { world: 'observatory', level: 4, spawn: 'default', label: 'The Observatory Above the Clouds' };
+  }
+  if (isLevelCompleted(state, 2) || level === 3) {
+    return { world: 'archive', level: 3, spawn: 'default', label: 'The Sealed Archive' };
+  }
+  if (isLevelCompleted(state, 1) || level === 2) {
+    return { world: 'ancientRuins', level: 2, spawn: 'fromWoods', label: 'The Fallen Circle' };
+  }
+  return { world: 'mondstadt', level: 1, spawn: 'default', label: 'Mondstadt Meadow' };
+}
+
 /** Compact progress summary for the pause menu. */
 export function summarize(state, ctx) {
   const levelId = state?.level || 1;

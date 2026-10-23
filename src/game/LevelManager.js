@@ -87,12 +87,21 @@ export class LevelManager {
       case 'ancientRuins':
         quests.setFlag('L2_foundRuins', true);
         break;
-      case 'archive':
+      case 'archive': {
         quests.setFlag('L3_entered', true);
-        if (flags.L4_seal && !flags.L4_returned) {
+        const returningWithSeal = !!flags.L4_seal && !flags.L4_returned;
+        if (returningWithSeal) {
           quests.setFlag('L4_returned', true);
+          this.game.hud?.toast({
+            icon: '☾',
+            kicker: 'The seal returns',
+            text: 'The celestial lock is whole.',
+            detail: 'The stair on the east wall of the archive will open now.',
+            variant: 'quest',
+          });
         }
         break;
+      }
       case 'observatory':
         quests.setFlag('L4_arrived', true);
         break;

@@ -595,13 +595,38 @@ export class SealedArchive extends BaseWorld {
     this._stairDoor = stairDoor;
     this._stairRune = runeSprite;
 
+    // Once the seal is home, the door announces itself: brighter runes, a light
+    // of its own and a minimap marker, so Chapter V is never a hunt.
+    if (this.game.levels.canTravelTo('hiddenLibrary').ok) {
+      this._stairRune.material.opacity = 0.95;
+      const stairLight = new THREE.PointLight('#cdb8ff', 6, 12, 2);
+      stairLight.position.set(14.6, 2.6, 0);
+      this.group.add(stairLight);
+      const beacon = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: glowTexture('#cbb6ff'),
+          transparent: true,
+          opacity: 0.65,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      beacon.scale.set(3.2, 3.2, 1);
+      beacon.position.set(15.2, 2.6, 0);
+      this.group.add(beacon);
+      this.addUpdate((dt, time) => {
+        beacon.material.opacity = 0.45 + Math.sin(time * 1.8) * 0.18;
+      });
+    }
+
     this.addInteractable({
       id: 'hidden-library-door',
       x: 15.2,
       z: 0,
       y: 2.4,
-      radius: 3,
+      radius: 3.4,
       prompt: () => (this.game.levels.canTravelTo('hiddenLibrary').ok ? 'Open the celestial stair' : 'Examine the celestial lock'),
+      marker: 'poi',
       glyph: '☾',
       action: () => {
         const check = this.game.levels.canTravelTo('hiddenLibrary');
